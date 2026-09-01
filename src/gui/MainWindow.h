@@ -1,0 +1,86 @@
+#ifndef MAINWINDOW_H
+#define MAINWINDOW_H
+
+#include <QMainWindow>
+#include <QString>
+#include <QLabel>
+
+class QLayout;
+class View2D;
+class DataLoader;
+
+class MainWindow : public QMainWindow
+{
+    Q_OBJECT
+public:
+    explicit MainWindow(const QString &configPath,
+                        const QString &dataPath,
+                        QWidget *parent = nullptr);
+    ~MainWindow();
+
+private:
+    void setupUI();
+
+    /*
+     ┌─────────────────────────────┐
+    │      menuBar() 菜单栏        │ ← 最顶部，文件、编辑
+    ├─────────────────────────────┤
+    │ addToolBar() 工具栏区域      │ ← 可以顶部/左边/右边
+    ├─────────────────────────────┤
+    │                             │
+    │     centralWidget()         │ ← 【中心部件】你的绘图画布放这里！最重要
+    │      (你的绘图widget)        │
+    │                             │
+    ├─────────────────────────────┤
+    │     statusBar() 状态栏       │ ← 死死固定在窗口最底部
+    └─────────────────────────────┘
+
+    */
+
+    void setupToolBar(); // 创建顶部工具栏
+
+    void setupStatusBar(); // 创建底部状态栏
+
+    void setupConnections();
+
+    // 创建顶部信息卡片
+    void createInfoCard(QLayout *layout,
+                        const QString &title,
+                        const QString &value,
+                        const QString &objectName);
+
+private slots:
+
+    void onStartSimulation();
+
+    void onPauseSimulation();
+
+    void onStopSimulation();
+
+    void onStatusUpdate(const QString &status);
+
+    void onVehicleDataUpdated(double x,
+                              double y,
+                              double yaw);
+
+private:
+    // 顶部数据显示控件
+    QLabel *speedValue_ = nullptr;
+    QLabel *distanceValue_ = nullptr;
+    QLabel *fpsValue_ = nullptr;
+    QLabel *algoValue_ = nullptr;
+
+    DataLoader *dataLoader_ = nullptr;
+
+    double totalDistance_ = 0.0;
+
+    double lastX_ = 0.0;
+    double lastY_ = 0.0;
+
+    View2D *view2D_ = nullptr;
+
+    QString configPath_;
+    QString dataPath_;
+};
+
+#endif
