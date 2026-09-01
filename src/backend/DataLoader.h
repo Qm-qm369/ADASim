@@ -3,6 +3,8 @@
 
 #include <QObject>
 #include <QTimer>
+#include <QDebug>
+#include <QThread>
 
 class DataLoader : public QObject
 {

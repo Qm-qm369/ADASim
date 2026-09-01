@@ -11,7 +11,7 @@ DataLoader::DataLoader(const QString &dataPath,
     const QObject *receiver,     // 参数3：接收者对象指针
     const char *method,          // 参数4：槽函数（函数地址）
     Qt::ConnectionType type = Qt::AutoConnection // 参数5：连接类型（可选，大部分情况不用写）
-);
+    );
 
     */
     // QTimer 每次 timeout 都执行 loadNextFrame()
@@ -31,14 +31,19 @@ DataLoader::~DataLoader()
  */
 void DataLoader::start()
 {
+    qDebug() << "DataLoader::start thread ="
+             << QThread::currentThread();
+    if (QThread::currentThread() != this->thread())
+    {
+        return;
+    }
+
     if (!isRunning_)
     {
         isRunning_ = true;
-
-        // 100ms 一帧，也就是 10Hz
         timer_->start(100);
 
-        emit statusUpdate("仿真运行中");
+        emit statusUpdate("正在运行：仿真推演中...");
     }
 }
 

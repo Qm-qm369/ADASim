@@ -2,6 +2,10 @@
 #include "View2D.h"
 #include "backend/DataLoader.h"
 
+#include <QThread>
+#include <QDebug>
+#include <QCloseEvent>
+#include <QMetaObject>
 #include <QToolBar>
 #include <QStatusBar>
 #include <cmath>
@@ -25,15 +29,76 @@ MainWindow::MainWindow(const QString &configPath,
     setupToolBar();
     setupStatusBar();
 
-    // V0.4 暂时让 DataLoader 工作在 GUI 主线程
-    dataLoader_ = new DataLoader(dataPath_, this);
-
+    // 创建并启动后台线程
+    startBackend();
     // 建立数据连接
     setupConnections();
 }
 
 MainWindow::~MainWindow()
 {
+    stopBackend();
+}
+
+void MainWindow::startBackend()
+{
+    qDebug() << "MainWindow thread ="
+             << QThread::currentThread();
+    // 创建后台线程
+    backendThread_ = new QThread(this);
+
+    /*
+     * 注意：
+     * DataLoader 这里不能传 this 作为 parent。
+     * Qt 要保证：父对象和子对象必须属于同一个线程。
+     * 因为有 parent 的 QObject
+     * 不能被 moveToThread() 移到其他线程。
+     */
+    dataLoader_ = new DataLoader(dataPath_);
+
+    // 将 DataLoader 的线程归属移动到后台线程
+    dataLoader_->moveToThread(backendThread_);
+
+    // 后台线程结束时，自动删除 DataLoader
+    connect(backendThread_,
+            &QThread::finished,
+            dataLoader_,
+            &QObject::deleteLater);
+
+    // 启动后台线程事件循环
+    backendThread_->start();
+}
+
+void MainWindow::stopBackend()
+{
+    if (backendThread_ &&
+        backendThread_->isRunning())
+    {
+        /*
+         * 先让 DataLoader 在自己的线程中停掉 QTimer。
+         *
+         * BlockingQueuedConnection：
+         * 主线程会等待 stop() 真正执行完再继续。
+         */
+        QMetaObject::invokeMethod(
+            dataLoader_,
+            "stop",
+            Qt::BlockingQueuedConnection);
+
+        // 通知后台线程退出事件循环
+        backendThread_->quit();
+
+        // 等待后台线程真正结束
+        backendThread_->wait(2000);
+    }
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    // 关闭窗口前先停止后台线程
+    stopBackend();
+    // 接受这个事件，事件不再继续向上传递。
+    event->accept();
 }
 
 // 建立真正的数据连接
@@ -54,17 +119,27 @@ void MainWindow::setupConnections()
 
 void MainWindow::onStartSimulation()
 {
-    dataLoader_->start();
+    // 跨线程调用对象的 `start()` 槽函数，使用队列方式投递事件，不阻塞当前线程。
+    QMetaObject::invokeMethod(
+        dataLoader_,
+        "start",
+        Qt::QueuedConnection);
 }
 
 void MainWindow::onPauseSimulation()
 {
-    dataLoader_->pause();
+    QMetaObject::invokeMethod(
+        dataLoader_,
+        "pause",
+        Qt::QueuedConnection);
 }
 
 void MainWindow::onStopSimulation()
 {
-    dataLoader_->stop();
+    QMetaObject::invokeMethod(
+        dataLoader_,
+        "stop",
+        Qt::QueuedConnection);
 
     // 重置界面数据
     totalDistance_ = 0.0;

@@ -8,6 +8,8 @@
 class QLayout;
 class View2D;
 class DataLoader;
+class QThread;
+class QCloseEvent;
 
 class MainWindow : public QMainWindow
 {
@@ -37,10 +39,8 @@ private:
 
     */
 
-    void setupToolBar(); // 创建顶部工具栏
-
+    void setupToolBar();   // 创建顶部工具栏
     void setupStatusBar(); // 创建底部状态栏
-
     void setupConnections();
 
     // 创建顶部信息卡片
@@ -49,16 +49,21 @@ private:
                         const QString &value,
                         const QString &objectName);
 
+    // 启动后台线程
+    void startBackend();
+    // 安全停止后台线程
+    void stopBackend();
+
+protected:
+    // 窗口关闭时安全结束后台线程
+    void closeEvent(QCloseEvent *event) override;
+
 private slots:
 
     void onStartSimulation();
-
     void onPauseSimulation();
-
     void onStopSimulation();
-
     void onStatusUpdate(const QString &status);
-
     void onVehicleDataUpdated(double x,
                               double y,
                               double yaw);
@@ -70,6 +75,9 @@ private:
     QLabel *fpsValue_ = nullptr;
     QLabel *algoValue_ = nullptr;
 
+    // 后台数据线程
+    QThread *backendThread_ = nullptr;
+    // 数据生成器
     DataLoader *dataLoader_ = nullptr;
 
     double totalDistance_ = 0.0;
