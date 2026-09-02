@@ -105,16 +105,50 @@ void MainWindow::closeEvent(QCloseEvent *event)
 void MainWindow::setupConnections()
 {
     // DataLoader -> MainWindow
-    connect(dataLoader_,
-            &DataLoader::vehiclePositionReady,
-            this,
-            &MainWindow::onVehicleDataUpdated);
+    connect(dataLoader_, &DataLoader::vehiclePositionReady,
+            this, &MainWindow::onVehicleDataUpdated);
 
     // DataLoader -> 状态栏
-    connect(dataLoader_,
-            &DataLoader::statusUpdate,
+    connect(dataLoader_, &DataLoader::statusUpdate,
+            this, &MainWindow::onStatusUpdate);
+
+    connect(dataLoader_, &DataLoader::totalFramesLoaded,
+            this, [this](int total)
+            {
+                int maxFrame = (total > 0) ? total - 1 : 0;
+                // FIFO最多100帧，所以最大索引99
+                if (maxFrame > 99)
+                    maxFrame = 99;
+                timeSlider_->setMaximum(maxFrame); });
+
+    connect(dataLoader_, &DataLoader::currentFrameUpdated,
+            this, [this](int current)
+            {
+            /*
+             * 程序主动移动滑块时，
+             * 不允许触发 valueChanged，
+             * 否则会反过来调用 seekToFrame。 
+             * blockSignals() 是 Qt 的 QObject 自带函数 临时阻止一个 Qt 对象发出信号。
+             */
+            timeSlider_->blockSignals(true);
+
+            timeSlider_->setValue(current);
+
+            timeSlider_->blockSignals(false);
+
+            timeLabel_->setText(QString("%1 / %2").arg(current). arg(timeSlider_->maximum())); });
+
+    connect(timeSlider_, &QSlider::valueChanged,
             this,
-            &MainWindow::onStatusUpdate);
+            [this](int value)
+            {
+                // 更新显示
+                timeLabel_->setText(QString("%1 / %2").arg(value).arg(timeSlider_->maximum()));
+
+                // 通知后台回放指定帧
+                QMetaObject::invokeMethod(dataLoader_, "seekToFrame",
+                                          Qt::QueuedConnection, Q_ARG(int, value));
+            }); // QMetaObject::invokeMethod() 跨线程传递任务。
 }
 
 void MainWindow::onStartSimulation()
@@ -274,6 +308,58 @@ void MainWindow::setupUI()
 
     // 让 View2D 占据主要空间
     mainLayout->addWidget(view2D_, 1);
+
+    // =========================
+    // 时间轴回放区域
+    // =========================
+
+    QFrame *playbackPanel = new QFrame(this);
+
+    playbackPanel->setFixedHeight(55);
+
+    playbackPanel->setStyleSheet(
+        "QFrame {"
+        "background-color: #111827;"
+        "border: 1px solid #2d3748;"
+        "border-radius: 6px;"
+        "}");
+
+    QHBoxLayout *playbackLayout =
+        new QHBoxLayout(playbackPanel);
+
+    QLabel *playbackTitle =
+        new QLabel("时光回放：", playbackPanel);
+
+    playbackTitle->setStyleSheet(
+        "color: #8b949e;"
+        "font-weight: bold;");
+
+    // 横向滑动条
+    timeSlider_ = new QSlider(Qt::Horizontal, playbackPanel);
+
+    timeSlider_->setMinimum(0);
+    timeSlider_->setMaximum(0);
+
+    // 当前帧 / 最大帧
+    timeLabel_ =
+        new QLabel("0 / 0", playbackPanel);
+
+    timeLabel_->setMinimumWidth(80);
+
+    timeLabel_->setAlignment(
+        Qt::AlignRight |
+        Qt::AlignVCenter);
+
+    timeLabel_->setStyleSheet(
+        "color: #8b949e;");
+
+    playbackLayout->addWidget(playbackTitle);
+
+    playbackLayout->addWidget(timeSlider_, 1);
+
+    playbackLayout->addWidget(timeLabel_);
+
+    mainLayout->addWidget(playbackPanel);
 
     // =========================
     // 3. 底部状态区域

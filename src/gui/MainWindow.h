@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QString>
 #include <QLabel>
+#include <QSlider>
 
 class QLayout;
 class View2D;
@@ -69,6 +70,12 @@ private slots:
                               double yaw);
 
 private:
+    // 行车记录仪时间轴
+    QSlider *timeSlider_ = nullptr;
+
+    // 显示 当前帧 / 最大帧
+    QLabel *timeLabel_ = nullptr;
+
     // 顶部数据显示控件
     QLabel *speedValue_ = nullptr;
     QLabel *distanceValue_ = nullptr;

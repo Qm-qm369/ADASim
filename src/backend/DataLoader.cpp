@@ -26,6 +26,30 @@ DataLoader::~DataLoader()
     stop();
 }
 
+// 实现时光倒流函数
+void DataLoader::seekToFrame(int index)
+{
+    // 防止访问不存在的帧
+    if (index < 0 ||
+        index >= historyQueue_.size())
+    {
+        return;
+    }
+
+    // 进入历史回放模式
+    replayCursor_ = index;
+
+    // 立即取出用户选择的历史帧
+    FrameState state =
+        historyQueue_[index];
+
+    // 立即显示，不必等下一次 QTimer
+    emit vehiclePositionReady(
+        state.x,
+        state.y,
+        state.yaw);
+}
+
 /**
  * 启动仿真
  */
@@ -68,12 +92,25 @@ void DataLoader::stop()
 {
     isRunning_ = false;
 
-    timer_->stop();
+    if (timer_->isActive())
+    {
+        timer_->stop();
+    }
 
-    // 从世界坐标 X=0 重新开始
+    // 清空所有历史状态
+    historyQueue_.clear();
+
     liveSandboxX_ = 0.0;
 
-    emit statusUpdate("仿真已停止");
+    replayCursor_ = -1;
+
+    // 重置时间轴
+    emit totalFramesLoaded(0);
+
+    emit currentFrameUpdated(0);
+
+    emit statusUpdate(
+        "引擎已停止并重置");
 }
 
 /**
@@ -84,13 +121,64 @@ void DataLoader::loadNextFrame()
     if (!isRunning_)
         return;
 
-    // 原源码中的简易沙盒运动模型
+    // ======================================
+    // 模式1：正在播放历史缓存
+    // ======================================
+
+    if (replayCursor_ >= 0 &&
+        replayCursor_ < historyQueue_.size() - 1)
+    {
+        // 播放下一帧历史数据
+        replayCursor_++;
+
+        FrameState state =
+            historyQueue_[replayCursor_];
+
+        emit vehiclePositionReady(
+            state.x,
+            state.y,
+            state.yaw);
+
+        // 更新 UI 时间轴位置
+        emit currentFrameUpdated(replayCursor_);
+
+        return;
+    }
+
+    // ======================================
+    // 模式2：已经追上最新时间，生成未来
+    // ======================================
+
+    replayCursor_ = -1;
+
+    // 沙盒车辆继续向前
     liveSandboxX_ += 0.5;
 
-    double x = liveSandboxX_;
-    double y = 0.0;
-    double yaw = 0.0;
+    FrameState state{
+        liveSandboxX_,
+        0.0,
+        0.0};
 
-    // 把这一帧车辆位置发出去
-    emit vehiclePositionReady(x, y, yaw);
+    // 保存新产生的一帧
+    historyQueue_.append(state);
+
+    // FIFO：最多保存100帧
+    if (historyQueue_.size() > 100)
+    {
+        historyQueue_.pop_front();
+    }
+
+    // 分发车辆状态
+    emit vehiclePositionReady(
+        state.x,
+        state.y,
+        state.yaw);
+
+    // 通知时间轴当前缓存大小
+    emit totalFramesLoaded(
+        historyQueue_.size());
+
+    // 滑块跟随到最新的一帧
+    emit currentFrameUpdated(
+        historyQueue_.size() - 1);
 }
