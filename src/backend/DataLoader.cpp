@@ -2,8 +2,12 @@
 
 DataLoader::DataLoader(const QString &dataPath,
                        QObject *parent)
-    : QObject(parent), dataPath_(dataPath), timer_(new QTimer(this))
+    : QObject(parent), dataPath_(dataPath), replayCursor_(-1), isRunning_(false), timer_(new QTimer(this))
 {
+    // QVector<QPointF> 后面需要跨线程传输
+    // 把 QVector<QPointF> 这种数据类型登记到 Qt 的“类型系统”里，让 Qt 知道这种类型。
+    qRegisterMetaType<QVector<QPointF>>("QVector<QPointF>");
+
     /*
     QObject::connect(
     const QObject *sender,        // 参数1：信号发送者对象指针
@@ -15,10 +19,8 @@ DataLoader::DataLoader(const QString &dataPath,
 
     */
     // QTimer 每次 timeout 都执行 loadNextFrame()
-    connect(timer_,
-            &QTimer::timeout,
-            this,
-            &DataLoader::loadNextFrame);
+    connect(timer_, &QTimer::timeout,
+            this, &DataLoader::loadNextFrame);
 }
 
 DataLoader::~DataLoader()
@@ -29,25 +31,26 @@ DataLoader::~DataLoader()
 // 实现时光倒流函数
 void DataLoader::seekToFrame(int index)
 {
-    // 防止访问不存在的帧
     if (index < 0 ||
         index >= historyQueue_.size())
     {
         return;
     }
 
-    // 进入历史回放模式
     replayCursor_ = index;
 
-    // 立即取出用户选择的历史帧
-    FrameState state =
-        historyQueue_[index];
+    FrameState state = historyQueue_[index];
 
-    // 立即显示，不必等下一次 QTimer
+    // 更新车辆位置
     emit vehiclePositionReady(
         state.x,
         state.y,
         state.yaw);
+
+    // 同时重新触发当前帧的感知计算
+    emit pointCloudReady(QVector<QPointF>());
+
+    emit currentFrameUpdated(index);
 }
 
 /**
@@ -139,6 +142,9 @@ void DataLoader::loadNextFrame()
             state.y,
             state.yaw);
 
+        // 历史回放时也重新计算雷达数据
+        emit pointCloudReady(QVector<QPointF>());
+
         // 更新 UI 时间轴位置
         emit currentFrameUpdated(replayCursor_);
 
@@ -174,11 +180,12 @@ void DataLoader::loadNextFrame()
         state.y,
         state.yaw);
 
+    // 发出一帧基础点云
+    emit pointCloudReady(QVector<QPointF>());
+
     // 通知时间轴当前缓存大小
-    emit totalFramesLoaded(
-        historyQueue_.size());
+    emit totalFramesLoaded(historyQueue_.size());
 
     // 滑块跟随到最新的一帧
-    emit currentFrameUpdated(
-        historyQueue_.size() - 1);
+    emit currentFrameUpdated(historyQueue_.size() - 1);
 }

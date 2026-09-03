@@ -4,6 +4,7 @@
 #include <QPen>
 #include <QLinearGradient>
 #include <cmath>
+#include <QMouseEvent>
 
 View2D::View2D(QWidget *parent)
     : QWidget(parent)
@@ -36,6 +37,11 @@ void View2D::paintEvent(QPaintEvent *event)
 
     // 按顺序绘制
     drawMap(painter);
+
+    // 先画环境
+    drawObstacles(painter);
+
+    // 最后画车，保证车辆位于最上层
     drawVehicle(painter);
 }
 
@@ -148,6 +154,100 @@ void View2D::drawVehicle(QPainter &painter)
     painter.restore();
 }
 
+void View2D::drawObstacles(
+    QPainter &painter)
+{
+    painter.setPen(Qt::NoPen);
+
+    // =====================================
+    // 1. 用户手动添加的真值障碍物
+    // =====================================
+
+    painter.setBrush(
+        QColor(100, 110, 120, 180));
+
+    for (const QPointF &obstacle : globalUserObstacles_)
+    {
+        int x =
+            width() / 4 +
+            (obstacle.x() - vehicleX_) * zoom_;
+
+        int y =
+            height() / 2 -
+            (obstacle.y() - vehicleY_) * zoom_;
+
+        // 画一个椭圆
+        painter.drawEllipse(
+            QPoint(x, y),
+            6,
+            6);
+    }
+
+    // =====================================
+    // 2. 感知算法检测结果
+    // =====================================
+
+    for (const QPointF &obstacle : obstacles_)
+    {
+        int x =
+            width() / 4 +
+            (obstacle.x() - vehicleX_) * zoom_;
+
+        int y =
+            height() / 2 -
+            (obstacle.y() - vehicleY_) * zoom_;
+
+        // 检测范围光晕
+        painter.setBrush(
+            QColor(255, 50, 50, 100));
+
+        painter.drawEllipse(
+            QPoint(x, y),
+            10,
+            10);
+
+        // 障碍物中心
+        painter.setBrush(
+            QColor(255, 50, 50));
+
+        painter.drawEllipse(
+            QPoint(x, y),
+            4,
+            4);
+    }
+}
+
+void View2D::mousePressEvent(
+    QMouseEvent *event)
+{
+    if (event->button() == Qt::RightButton)
+    {
+        // 屏幕像素坐标 -> 世界物理坐标
+        double worldX =
+            vehicleX_ +
+            (event->pos().x() - width() / 4.0) / zoom_;
+
+        double worldY =
+            vehicleY_ -
+            (event->pos().y() - height() / 2.0) / zoom_;
+
+        // View2D自己保存一份真值用于显示
+        globalUserObstacles_.append(
+            QPointF(
+                worldX,
+                worldY));
+
+        // 通知DataManager
+        emit userObstacleAdded(
+            worldX,
+            worldY);
+
+        update();
+    }
+
+    QWidget::mousePressEvent(event);
+}
+
 void View2D::updateVehiclePosition(double x,
                                    double y,
                                    double yaw)
@@ -157,5 +257,13 @@ void View2D::updateVehiclePosition(double x,
     vehicleYaw_ = yaw;
 
     // 请求 Qt 重新绘制 View2D
+    update();
+}
+
+void View2D::updateObstacles(
+    const QVector<QPointF> &obstacles)
+{
+    obstacles_ = obstacles;
+
     update();
 }

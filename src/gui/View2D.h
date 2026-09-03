@@ -2,6 +2,11 @@
 #define VIEW2D_H
 
 #include <QWidget>
+#include <QVector>
+#include <QPointF>
+
+class QPainter;
+class QMouseEvent;
 
 class QPainter;
 
@@ -17,16 +22,30 @@ public:
     ~View2D();
 
 public slots:
+    void updateObstacles(
+        const QVector<QPointF> &obstacles);
+
     // 接收新的车辆位姿
     void updateVehiclePosition(double x,
                                double y,
                                double yaw);
 
+signals:
+    void userObstacleAdded(
+        double worldX,
+        double worldY);
+
 protected:
     // QWidget 需要重绘时，Qt 会自动调用
     void paintEvent(QPaintEvent *event) override;
 
+    void mousePressEvent(
+        QMouseEvent *event) override;
+
 private:
+    void drawObstacles(
+        QPainter &painter);
+
     // 绘制背景网格
     void drawMap(QPainter &painter);
 
@@ -34,6 +53,12 @@ private:
     void drawVehicle(QPainter &painter);
 
 private:
+    // 感知算法检测出来的障碍物
+    QVector<QPointF> obstacles_;
+
+    // 用户右键放置的真实障碍物
+    QVector<QPointF> globalUserObstacles_;
+
     // 像素/米，用于把物理尺寸转换成屏幕尺寸
     double zoom_ = 20.0;
 

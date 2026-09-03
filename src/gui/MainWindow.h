@@ -11,6 +11,8 @@ class View2D;
 class DataLoader;
 class QThread;
 class QCloseEvent;
+class DataManager;
+class SensorView;
 
 class MainWindow : public QMainWindow
 {
@@ -72,7 +74,6 @@ private slots:
 private:
     // 行车记录仪时间轴
     QSlider *timeSlider_ = nullptr;
-
     // 显示 当前帧 / 最大帧
     QLabel *timeLabel_ = nullptr;
 
@@ -86,6 +87,10 @@ private:
     QThread *backendThread_ = nullptr;
     // 数据生成器
     DataLoader *dataLoader_ = nullptr;
+
+    DataManager *dataManager_ = nullptr;
+
+    SensorView *sensorView_ = nullptr;
 
     double totalDistance_ = 0.0;
 

@@ -25,6 +25,9 @@ set(PROJECT_SOURCES
     src/gui/MainWindow.cpp
     src/gui/View2D.cpp
     src/backend/DataLoader.cpp
+    src/backend/DataManager.cpp
+    src/gui/SensorView.cpp
+    src/algorithm/ObstacleDetector.cpp
 )
 
 # 创建可执行文件

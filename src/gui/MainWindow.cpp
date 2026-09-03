@@ -1,6 +1,8 @@
 #include "MainWindow.h"
 #include "View2D.h"
 #include "backend/DataLoader.h"
+#include "backend/DataManager.h"
+#include "SensorView.h"
 
 #include <QThread>
 #include <QDebug>
@@ -55,15 +57,18 @@ void MainWindow::startBackend()
      * 不能被 moveToThread() 移到其他线程。
      */
     dataLoader_ = new DataLoader(dataPath_);
-
     // 将 DataLoader 的线程归属移动到后台线程
     dataLoader_->moveToThread(backendThread_);
 
+    dataManager_ = new DataManager();
+    dataManager_->moveToThread(backendThread_);
+
     // 后台线程结束时，自动删除 DataLoader
-    connect(backendThread_,
-            &QThread::finished,
-            dataLoader_,
-            &QObject::deleteLater);
+    connect(backendThread_, &QThread::finished,
+            dataLoader_, &QObject::deleteLater);
+
+    connect(backendThread_, &QThread::finished,
+            dataManager_, &QObject::deleteLater);
 
     // 启动后台线程事件循环
     backendThread_->start();
@@ -104,8 +109,12 @@ void MainWindow::closeEvent(QCloseEvent *event)
 // 建立真正的数据连接
 void MainWindow::setupConnections()
 {
-    // DataLoader -> MainWindow
+    /*
+     * DataLoader产生车辆数据  DataManager接收并保存
+     */
     connect(dataLoader_, &DataLoader::vehiclePositionReady,
+            dataManager_, &DataManager::updateVehicleState);
+    connect(dataManager_, &DataManager::vehicleStateUpdated,
             this, &MainWindow::onVehicleDataUpdated);
 
     // DataLoader -> 状态栏
@@ -149,6 +158,41 @@ void MainWindow::setupConnections()
                 QMetaObject::invokeMethod(dataLoader_, "seekToFrame",
                                           Qt::QueuedConnection, Q_ARG(int, value));
             }); // QMetaObject::invokeMethod() 跨线程传递任务。
+
+    // 自车位置同时交给DataManager
+    connect(
+        dataLoader_,
+        &DataLoader::vehiclePositionReady,
+        dataManager_,
+        &DataManager::onVehiclePositionReceived);
+
+    // 原始点云进入DataManager
+    connect(
+        dataLoader_,
+        &DataLoader::pointCloudReady,
+        dataManager_,
+        &DataManager::onPointCloudReceived);
+
+    // 最终点云给SensorView
+    connect(
+        dataManager_,
+        &DataManager::mergedPointCloudReady,
+        sensorView_,
+        &SensorView::updatePointCloud);
+
+    // 检测出的障碍物给View2D
+    connect(
+        dataManager_,
+        &DataManager::obstaclesDetected,
+        view2D_,
+        &View2D::updateObstacles);
+
+    // View2D右键添加障碍物
+    connect(
+        view2D_,
+        &View2D::userObstacleAdded,
+        dataManager_,
+        &DataManager::onUserObstacleAdded);
 }
 
 void MainWindow::onStartSimulation()
@@ -298,16 +342,20 @@ void MainWindow::setupUI()
     // 2. 中间 2D 仿真区域
     // =========================
 
+    QHBoxLayout *viewsLayout =
+        new QHBoxLayout();
+
     view2D_ = new View2D(this);
 
-    view2D_->setStyleSheet(
-        "View2D {"
-        "border: 2px solid #26364d;"
-        "border-radius: 8px;"
-        "}");
+    sensorView_ = new SensorView(this);
 
-    // 让 View2D 占据主要空间
-    mainLayout->addWidget(view2D_, 1);
+    // 左边主视图更大
+    viewsLayout->addWidget(view2D_, 2);
+
+    // 右边雷达视图
+    viewsLayout->addWidget(sensorView_, 1);
+
+    mainLayout->addLayout(viewsLayout, 1);
 
     // =========================
     // 时间轴回放区域

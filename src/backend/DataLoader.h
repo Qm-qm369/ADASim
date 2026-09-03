@@ -6,6 +6,8 @@
 #include <QDebug>
 #include <QThread>
 #include <QVector>
+#include <QVector>
+#include <QPointF>
 
 class DataLoader : public QObject
 {
@@ -19,10 +21,11 @@ public:
     ~DataLoader();
 
 signals:
+
+    // 当前帧 LiDAR 点云
+    void pointCloudReady(const QVector<QPointF> &points);
     // 向外发送车辆位置
-    void vehiclePositionReady(double x,
-                              double y,
-                              double yaw);
+    void vehiclePositionReady(double x, double y, double yaw);
 
     // 向界面发送运行状态
     void statusUpdate(const QString &status);
