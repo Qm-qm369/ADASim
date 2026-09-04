@@ -28,6 +28,7 @@ set(PROJECT_SOURCES
     src/backend/DataManager.cpp
     src/gui/SensorView.cpp
     src/algorithm/ObstacleDetector.cpp
+    src/algorithm/PathPredictor.cpp
 )
 
 # 创建可执行文件

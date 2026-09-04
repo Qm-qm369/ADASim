@@ -14,6 +14,7 @@ MainWindow 显示
 #include <QVector>
 #include <QPointF>
 
+#include "algorithm/PathPredictor.h"
 #include "algorithm/ObstacleDetector.h"
 
 class DataManager : public QObject
@@ -25,6 +26,10 @@ public:
     ~DataManager();
 
 signals:
+
+    // 预测出的未来轨迹
+    void pathPredicted(
+        const QVector<QPointF> &predictedTrajectory);
 
     void obstaclesDetected(
         const QVector<QPointF> &obstaclePositions);
@@ -57,6 +62,12 @@ public slots:
         double yaw);
 
 private:
+    // 轨迹预测算法
+    PathPredictor pathPredictor_;
+
+    // 保存车辆历史位置
+    QVector<QPointF> historyTrajectory_;
+
     // 点云聚类算法
     ObstacleDetector obstacleDetector_;
 
@@ -69,7 +80,7 @@ private:
     double vehicleY_ = 0.0;
     double vehicleYaw_ = 0.0;
 
-    // V0.8感知计算使用的当前自车位姿
+    // V0.8感知计算使用的当前自车位姿 做障碍物世界坐标和自车局部坐标之间的转换。
     double lastEgoX_ = 0.0;
     double lastEgoY_ = 0.0;
     double lastEgoYaw_ = 0.0;

@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QVector>
 #include <QPointF>
+#include <QPolygonF>
 
 class QPainter;
 class QMouseEvent;
@@ -29,6 +30,7 @@ public slots:
     void updateVehiclePosition(double x,
                                double y,
                                double yaw);
+    void drawTrajectory(QPainter &painter);
 
 signals:
     void userObstacleAdded(
@@ -53,6 +55,9 @@ private:
     void drawVehicle(QPainter &painter);
 
 private:
+    // 自车过去走过的轨迹
+    QPolygonF trajectory_;
+
     // 感知算法检测出来的障碍物
     QVector<QPointF> obstacles_;
 

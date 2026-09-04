@@ -39,11 +39,39 @@ void DataManager::onVehiclePositionReceived(
     double y,
     double yaw)
 {
+    // 保存当前自车位姿
     lastEgoX_ = x;
-
     lastEgoY_ = y;
-
     lastEgoYaw_ = yaw;
+
+    // =====================================
+    // 1. 保存历史轨迹
+    // =====================================
+
+    historyTrajectory_.append(
+        QPointF(x, y));
+
+    // 最多保存200帧
+    if (historyTrajectory_.size() > 200)
+    {
+        historyTrajectory_.pop_front();
+    }
+
+    // =====================================
+    // 2. 预测未来3秒
+    // =====================================
+
+    PredictedPath predicted =
+        pathPredictor_.predict(
+            historyTrajectory_,
+            3);
+
+    // =====================================
+    // 3. 发布预测结果
+    // =====================================
+
+    emit pathPredicted(
+        predicted.path);
 }
 
 void DataManager::onUserObstacleAdded(

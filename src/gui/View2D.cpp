@@ -26,22 +26,25 @@ void View2D::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event);
 
-    // 创建画笔，画布就是当前 View2D
     QPainter painter(this);
 
-    // 开启抗锯齿
-    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setRenderHint(
+        QPainter::Antialiasing);
 
-    // 绘制深色背景
-    painter.fillRect(rect(), QColor(5, 8, 17));
+    painter.fillRect(
+        rect(),
+        QColor(5, 8, 17));
 
-    // 按顺序绘制
+    // 背景
     drawMap(painter);
 
-    // 先画环境
+    // V0.9 历史轨迹
+    drawTrajectory(painter);
+
+    // 障碍物
     drawObstacles(painter);
 
-    // 最后画车，保证车辆位于最上层
+    // 自车
     drawVehicle(painter);
 }
 
@@ -217,6 +220,8 @@ void View2D::drawObstacles(
     }
 }
 
+// 它不是识别你点了哪个物体，而是直接通过event->pos()读取你鼠标点击的像素坐标
+// 再根据zoom_和车辆位置把这个像素坐标换算成世界坐标。
 void View2D::mousePressEvent(
     QMouseEvent *event)
 {
@@ -225,7 +230,7 @@ void View2D::mousePressEvent(
         // 屏幕像素坐标 -> 世界物理坐标
         double worldX =
             vehicleX_ +
-            (event->pos().x() - width() / 4.0) / zoom_;
+            (event->pos().x() - width() / 4.0) / zoom_; // event->pos() Qt 传进来的鼠标事件对象。
 
         double worldY =
             vehicleY_ -
@@ -233,14 +238,10 @@ void View2D::mousePressEvent(
 
         // View2D自己保存一份真值用于显示
         globalUserObstacles_.append(
-            QPointF(
-                worldX,
-                worldY));
+            QPointF(worldX, worldY));
 
         // 通知DataManager
-        emit userObstacleAdded(
-            worldX,
-            worldY);
+        emit userObstacleAdded(worldX, worldY);
 
         update();
     }
@@ -248,15 +249,43 @@ void View2D::mousePressEvent(
     QWidget::mousePressEvent(event);
 }
 
-void View2D::updateVehiclePosition(double x,
-                                   double y,
-                                   double yaw)
+void View2D::updateVehiclePosition(
+    double x,
+    double y,
+    double yaw)
 {
+    /*
+     * 如果时间轴突然跳转，
+     * 防止历史轨迹从旧位置直接连到新位置。
+     */
+    if (!trajectory_.isEmpty())
+    {
+        QPointF last =
+            trajectory_.last();
+
+        // 如果新位置和上一位置，在 X 或 Y 任意一个方向突然相差超过 5，就认为发生了位置跳转，把以前画的轨迹清掉。
+        if (std::abs(last.x() - x) > 5.0 ||
+            std::abs(last.y() - y) > 5.0)
+        {
+            trajectory_.clear();
+        }
+    }
+
+    // 更新车辆位置
     vehicleX_ = x;
     vehicleY_ = y;
     vehicleYaw_ = yaw;
 
-    // 请求 Qt 重新绘制 View2D
+    // 保存历史轨迹
+    trajectory_.append(
+        QPointF(x, y));
+
+    // View2D只保留最近99个显示点
+    while (trajectory_.size() > 99)
+    {
+        trajectory_.pop_front();
+    }
+
     update();
 }
 
@@ -266,4 +295,37 @@ void View2D::updateObstacles(
     obstacles_ = obstacles;
 
     update();
+}
+
+// 把 trajectory_ 里保存的历史轨迹点，一段一段画到 View2D 上。
+void View2D::drawTrajectory(
+    QPainter &painter)
+{
+    if (trajectory_.size() < 2)
+    {
+        return;
+    }
+
+    for (int i = 1; i < trajectory_.size(); ++i)
+    {
+        QPointF p1 = trajectory_[i - 1];
+
+        QPointF p2 = trajectory_[i];
+
+        // 世界坐标 -> 屏幕坐标
+        int x1 = width() / 4 + (p1.x() - vehicleX_) * zoom_;
+
+        int y1 = height() / 2 - (p1.y() - vehicleY_) * zoom_;
+
+        int x2 = width() / 4 + (p2.x() - vehicleX_) * zoom_;
+
+        int y2 = height() / 2 - (p2.y() - vehicleY_) * zoom_;
+
+        // 越新的轨迹越明显
+        int alpha = static_cast<int>(255.0 * i / trajectory_.size());
+
+        painter.setPen(QPen(QColor(0, 200, 255, alpha), 2));
+
+        painter.drawLine(x1, y1, x2, y2);
+    }
 }

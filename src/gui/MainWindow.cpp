@@ -193,6 +193,14 @@ void MainWindow::setupConnections()
         &View2D::userObstacleAdded,
         dataManager_,
         &DataManager::onUserObstacleAdded);
+
+    connect(dataManager_, &DataManager::pathPredicted,
+            this, [this](const QVector<QPointF> &path)
+            {
+            if (algoValue_)
+            {
+                algoValue_->setText(QString("预测 %1 点").arg(path.size()));
+            } });
 }
 
 void MainWindow::onStartSimulation()
