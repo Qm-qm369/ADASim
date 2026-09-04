@@ -201,6 +201,9 @@ void MainWindow::setupConnections()
             {
                 algoValue_->setText(QString("预测 %1 点").arg(path.size()));
             } });
+
+    connect(dataManager_, &DataManager::pathPredicted,
+            view2D_, &View2D::updatePredictedPath);
 }
 
 void MainWindow::onStartSimulation()

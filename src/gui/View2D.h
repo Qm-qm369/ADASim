@@ -23,6 +23,10 @@ public:
     ~View2D();
 
 public slots:
+    // 接收 PathPredictor 计算出的未来轨迹
+    void updatePredictedPath(
+        const QVector<QPointF> &path);
+
     void updateObstacles(
         const QVector<QPointF> &obstacles);
 
@@ -54,7 +58,12 @@ private:
     // 绘制自车
     void drawVehicle(QPainter &painter);
 
+    // 绘制未来预测轨迹
+    void drawPredictedPath(QPainter &painter);
+
 private:
+    // PathPredictor预测出的未来世界坐标
+    QVector<QPointF> predictedPath_;
     // 自车过去走过的轨迹
     QPolygonF trajectory_;
 

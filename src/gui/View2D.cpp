@@ -41,6 +41,9 @@ void View2D::paintEvent(QPaintEvent *event)
     // V0.9 历史轨迹
     drawTrajectory(painter);
 
+    // 3. V0.9 未来预测轨迹
+    drawTrajectory(painter);
+
     // 障碍物
     drawObstacles(painter);
 
@@ -328,4 +331,79 @@ void View2D::drawTrajectory(
 
         painter.drawLine(x1, y1, x2, y2);
     }
+}
+
+void View2D::updatePredictedPath(
+    const QVector<QPointF> &path)
+{
+    // 保存最新预测结果
+    predictedPath_ = path;
+
+    // 请求Qt重新绘制
+    update();
+}
+
+void View2D::drawPredictedPath(
+    QPainter &painter)
+{
+    // 没有预测结果就不画
+    if (predictedPath_.isEmpty())
+    {
+        return;
+    }
+
+    painter.save();
+
+    // 黄色虚线表示未来预测
+    QPen predictedPen(
+        QColor(255, 200, 50, 220),
+        2,
+        Qt::DashLine);
+
+    painter.setPen(predictedPen);
+
+    painter.setBrush(
+        QColor(255, 200, 50, 220));
+
+    // 第一段从当前车辆位置开始
+    QPointF previousWorld(
+        vehicleX_,
+        vehicleY_);
+
+    for (const QPointF &worldPoint : predictedPath_)
+    {
+        // ==============================
+        // 上一个世界坐标 -> 屏幕坐标
+        // ==============================
+
+        QPointF previousScreen(
+            width() / 4.0 + (previousWorld.x() - vehicleX_) * zoom_,
+
+            height() / 2.0 - (previousWorld.y() - vehicleY_) * zoom_);
+
+        // ==============================
+        // 当前预测世界坐标 -> 屏幕坐标
+        // ==============================
+
+        QPointF currentScreen(
+            width() / 4.0 + (worldPoint.x() - vehicleX_) * zoom_,
+
+            height() / 2.0 - (worldPoint.y() - vehicleY_) * zoom_);
+
+        // 连接预测轨迹
+        painter.drawLine(
+            previousScreen,
+            currentScreen);
+
+        // 每一个预测位置都画一个小点
+        painter.drawEllipse(
+            currentScreen,
+            2.5,
+            2.5);
+
+        previousWorld =
+            worldPoint;
+    }
+
+    painter.restore();
 }
