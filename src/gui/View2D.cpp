@@ -41,8 +41,8 @@ void View2D::paintEvent(QPaintEvent *event)
     // V0.9 历史轨迹
     drawTrajectory(painter);
 
-    // 3. V0.9 未来预测轨迹
-    drawTrajectory(painter);
+    // V0.9 未来预测轨迹
+    drawPredictedPath(painter);
 
     // 障碍物
     drawObstacles(painter);
