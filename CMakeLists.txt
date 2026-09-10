@@ -29,6 +29,7 @@ set(PROJECT_SOURCES
     src/gui/SensorView.cpp
     src/algorithm/ObstacleDetector.cpp
     src/algorithm/PathPredictor.cpp
+    src/communication/Socket.cpp
 )
 
 # 创建可执行文件

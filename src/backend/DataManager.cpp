@@ -1,6 +1,10 @@
 #include "DataManager.h"
 
 #include <cmath>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonParseError>
 
 DataManager::DataManager(QObject *parent)
     : QObject(parent)
@@ -140,6 +144,53 @@ void DataManager::onPointCloudReceived(
         obstacleDetector_.detect(
             mergedPoints);
 
+    // =====================================
+    // V0.10
+    // 把检测结果发送给Python Planner
+    // 把 C++ 感知算法检测出来的 Obstacle 障碍物，整理成 JSON 数据，再通过 plannerDataReady 信号交出去，准备发送给 Python Planner。
+    // =====================================
+
+    QJsonArray obstacleArray;
+
+    for (const Obstacle &obstacle : obstacles)
+    {
+        QJsonObject object;
+
+        // 规划使用自车局部坐标
+        object["local_x"] = obstacle.position.x();
+
+        object["local_y"] = obstacle.position.y();
+
+        object["dist"] = obstacle.distance;
+
+        obstacleArray.append(object);
+    }
+
+    /*
+    {
+    "type": "OBSTACLES",
+    "data": [
+        {
+            "local_x": ...,
+            "local_y": ...,
+            "dist": ...
+        }
+    ]
+    */
+    QJsonObject root;
+
+    root["type"] = "OBSTACLES";
+
+    root["data"] = obstacleArray;
+
+    // 这就是 C++ 和 Python 之间约定的一种数据格式。
+    QByteArray plannerData = QJsonDocument(root).toJson(QJsonDocument::Compact);
+
+    // 我们规定：每条消息以换行结束
+    plannerData.append('\n');
+
+    emit plannerDataReady(plannerData);
+
     QVector<QPointF> obstaclePositions;
 
     // =====================================
@@ -167,4 +218,39 @@ void DataManager::onPointCloudReceived(
     // SensorView 使用自车局部点云 看到的是类似车辆雷达第一视角的数据。
     emit mergedPointCloudReady(
         mergedPoints);
+}
+
+void DataManager::onPlannerDataReceived(const QByteArray &data)
+{
+    QJsonParseError error;
+
+    QJsonDocument document = QJsonDocument::fromJson(data, &error);
+
+    // JSON解析失败
+    if (error.error != QJsonParseError::NoError)
+    {
+        return;
+    }
+
+    if (!document.isObject())
+    {
+        return;
+    }
+
+    QJsonObject root = document.object();
+
+    // 只处理CONTROL消息
+    if (root["type"].toString() != "CONTROL") // 只处理 "type": "CONTROL" 的消息。
+    {
+        return;
+    }
+
+    if (!root.contains("steer_offset"))
+    {
+        return;
+    }
+
+    double offset = root["steer_offset"].toDouble();
+
+    emit lateralControlReceived(offset);
 }

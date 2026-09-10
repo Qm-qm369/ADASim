@@ -13,6 +13,7 @@ class QThread;
 class QCloseEvent;
 class DataManager;
 class SensorView;
+class SocketServer;
 
 class MainWindow : public QMainWindow
 {
@@ -61,6 +62,9 @@ protected:
     // 窗口关闭时安全结束后台线程
     void closeEvent(QCloseEvent *event) override;
 
+    // V0.10
+    void setupNetwork();
+
 private slots:
 
     void onStartSimulation();
@@ -101,6 +105,9 @@ private:
 
     QString configPath_;
     QString dataPath_;
+
+    // V0.10 TCP服务器
+    SocketServer *socketServer_ = nullptr;
 };
 
 #endif

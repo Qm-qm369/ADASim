@@ -3,6 +3,7 @@
 #include "backend/DataLoader.h"
 #include "backend/DataManager.h"
 #include "SensorView.h"
+#include "communication/Socket.h"
 
 #include <QThread>
 #include <QDebug>
@@ -35,10 +36,18 @@ MainWindow::MainWindow(const QString &configPath,
     startBackend();
     // 建立数据连接
     setupConnections();
+
+    // V0.10网络与规划
+    setupNetwork();
 }
 
 MainWindow::~MainWindow()
 {
+    if (socketServer_)
+    {
+        socketServer_->stop();
+    }
+
     stopBackend();
 }
 
@@ -534,4 +543,75 @@ void MainWindow::setupToolBar()
 void MainWindow::setupStatusBar()
 {
     statusBar()->showMessage("ADASim 引擎就绪");
+}
+
+void MainWindow::setupNetwork()
+{
+    // =====================================
+    // 1. 创建TCP服务器
+    // =====================================
+
+    socketServer_ = new SocketServer(this);
+
+    // =====================================
+    // 2. DataManager -> Python
+    // =====================================
+
+    connect(dataManager_, &DataManager::plannerDataReady,
+            socketServer_, &SocketServer::sendToClient);
+
+    // =====================================
+    // 3. Python -> DataManager
+    // =====================================
+
+    connect(socketServer_, &SocketServer::dataReceived,
+            dataManager_, &DataManager::onPlannerDataReceived);
+
+    // =====================================
+    // 4. 规划结果 -> View2D
+    // =====================================
+
+    connect(dataManager_, &DataManager::lateralControlReceived,
+            view2D_, &View2D::setPlannedOffset);
+
+    // =====================================
+    // 5. 显示规划结果
+    // =====================================
+
+    connect(dataManager_, &DataManager::lateralControlReceived,
+            this, [this](double offset)
+            {
+            if (algoValue_)
+            {
+                algoValue_->setText( QString( "规划偏移 %1 m").arg(offset, 0, 'f', 2));
+            } });
+
+    // =====================================
+    // 6. 网络状态
+    // =====================================
+
+    connect(socketServer_, &SocketServer::clientConnected,
+            this, [this]()
+            { statusBar()->showMessage(
+                  "Python Planner 已连接"); });
+
+    connect(socketServer_, &SocketServer::clientDisconnected,
+            this, [this]()
+            { statusBar()->showMessage(
+                  "Python Planner 已断开"); });
+
+    // =====================================
+    // 7. 开始监听8080
+    // =====================================
+
+    bool success = socketServer_->startTcpServer(8080);
+
+    if (success)
+    {
+        statusBar()->showMessage("Planner TCP Server：8080");
+    }
+    else
+    {
+        statusBar()->showMessage("TCP Server启动失败");
+    }
 }

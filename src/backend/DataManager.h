@@ -13,6 +13,7 @@ MainWindow 显示
 #include <QObject>
 #include <QVector>
 #include <QPointF>
+#include <QByteArray>
 
 #include "algorithm/PathPredictor.h"
 #include "algorithm/ObstacleDetector.h"
@@ -43,6 +44,12 @@ signals:
         double y,
         double yaw);
 
+    // 把规划输入数据交给网络模块
+    void plannerDataReady(const QByteArray &data);
+
+    // Python返回横向规划结果
+    void lateralControlReceived(double offset);
+
 public slots:
     void onPointCloudReceived(const QVector<QPointF> &points);
 
@@ -60,6 +67,9 @@ public slots:
         double x,
         double y,
         double yaw);
+
+    // 接收Python Planner返回的数据
+    void onPlannerDataReceived(const QByteArray &data);
 
 private:
     // 轨迹预测算法

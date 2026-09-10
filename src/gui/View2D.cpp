@@ -5,6 +5,7 @@
 #include <QLinearGradient>
 #include <cmath>
 #include <QMouseEvent>
+#include <QPainterPath> // 用来描述一条“绘图路径”
 
 View2D::View2D(QWidget *parent)
     : QWidget(parent)
@@ -43,6 +44,9 @@ void View2D::paintEvent(QPaintEvent *event)
 
     // V0.9 未来预测轨迹
     drawPredictedPath(painter);
+
+    // V0.10规划候选轨迹
+    drawPlanning(painter);
 
     // 障碍物
     drawObstacles(painter);
@@ -172,6 +176,7 @@ void View2D::drawObstacles(
     painter.setBrush(
         QColor(100, 110, 120, 180));
 
+    // 你用鼠标右键手动添加到沙盒里的障碍物。
     for (const QPointF &obstacle : globalUserObstacles_)
     {
         int x =
@@ -190,7 +195,7 @@ void View2D::drawObstacles(
     }
 
     // =====================================
-    // 2. 感知算法检测结果
+    // 2. 感知算法检测结果 感知算法检测以后，交给 View2D 显示的障碍物位置。
     // =====================================
 
     for (const QPointF &obstacle : obstacles_)
@@ -403,6 +408,78 @@ void View2D::drawPredictedPath(
 
         previousWorld =
             worldPoint;
+    }
+
+    painter.restore();
+}
+
+void View2D::setPlannedOffset(
+    double offset)
+{
+    plannedOffset_ = offset;
+
+    planningActive_ = true;
+
+    update();
+}
+
+void View2D::drawPlanning(QPainter &painter)
+{
+    if (!planningActive_)
+    {
+        return;
+    }
+
+    // 保存画笔当前状态（颜色、线宽等），函数结尾painter.restore()恢复，防止绘图修改影响其他渲染内容。
+    painter.save();
+
+    const double offsets[] =
+        {
+            -3.5,
+            -1.75,
+            0.0,
+            1.75,
+            3.5};
+
+    // 当前车辆屏幕位置
+    const double startX = width() / 4.0;
+
+    const double startY = height() / 2.0;
+
+    // 向前显示20米规划范围
+    const double planningDistance = 20.0;
+
+    const double endX = startX + planningDistance * zoom_;
+
+    for (double offset : offsets)
+    {
+        // 世界Y正方向在屏幕上是向上
+        double endY = startY - offset * zoom_;
+
+        bool selected = std::abs(offset - plannedOffset_) < 0.01;
+
+        if (selected)
+        {
+            painter.setPen(QPen(QColor(0, 255, 136, 230), 3, Qt::SolidLine));
+        }
+        else
+        {
+            painter.setPen(QPen(QColor(160, 170, 180, 80), 1, Qt::DashLine));
+        }
+
+        // 绘制三阶贝塞尔曲线
+        QPainterPath path;
+
+        path.moveTo(startX, startY);
+
+        double distance = endX - startX;
+
+        // 三阶贝塞尔曲线
+        path.cubicTo(startX + distance * 0.35, startY,
+                     startX + distance * 0.70, endY,
+                     endX, endY);
+
+        painter.drawPath(path);
     }
 
     painter.restore();
