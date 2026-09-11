@@ -5,6 +5,8 @@
 #include <QString>
 #include <QLabel>
 #include <QSlider>
+#include <QVector>
+#include <QPointF>
 
 class QLayout;
 class View2D;
@@ -81,6 +83,10 @@ private slots:
                               double y,
                               double yaw);
 
+    void startLateralPlan(double targetOffset);    // 创建一轮新的横向规划
+    double calculatePlannedOffset(double x) const; // 根据当前X计算车辆现在应该处于什么横向位置
+    void rebuildPlannedTrajectory();               // 提前生成一些轨迹点供View2D显示
+
 private:
     // 行车记录仪时间轴
     QSlider *timeSlider_ = nullptr;
@@ -117,6 +123,14 @@ private:
 
     double targetLateralOffset_ = 0.0;  // 算法想让我去哪
     double currentLateralOffset_ = 0.0; // 车辆现在实际移动到哪
+
+    double planStartX_ = 0.0;        // 这一轮变道从哪个X开始
+    double planStartOffset_ = 0.0;   // 开始变道时车辆真实横向位置
+    double planningDistance_ = 20.0; // 准备在多少米纵向距离内完成变道
+
+    bool lateralPlanActive_ = false; // 当前有没有正在执行的横向轨迹
+
+    QVector<QPointF> plannedTrajectory_; // 真正准备执行并显示的轨迹点
 };
 
 #endif

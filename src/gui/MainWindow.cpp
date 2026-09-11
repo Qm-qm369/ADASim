@@ -226,27 +226,36 @@ void MainWindow::onPauseSimulation()
 
 void MainWindow::onStopSimulation()
 {
-    QMetaObject::invokeMethod(
-        dataLoader_,
-        "stop",
-        Qt::QueuedConnection);
+    QMetaObject::invokeMethod(dataLoader_, "stop", Qt::QueuedConnection);
 
-    // 重置界面数据
     totalDistance_ = 0.0;
     lastX_ = 0.0;
     lastY_ = 0.0;
+
     targetLateralOffset_ = 0.0;
     currentLateralOffset_ = 0.0;
 
+    planStartX_ = 0.0;
+    planStartOffset_ = 0.0;
+    lateralPlanActive_ = false;
+
+    plannedTrajectory_.clear();
+
     if (speedValue_)
+    {
         speedValue_->setText("0.0 km/h");
+    }
 
     if (distanceValue_)
+    {
         distanceValue_->setText("0.0 m");
+    }
 
-    // 重置视图
     if (view2D_)
+    {
         view2D_->updateVehiclePosition(0.0, 0.0, 0.0);
+        view2D_->updatePlannedTrajectory(QVector<QPointF>());
+    }
 }
 
 void MainWindow::onStatusUpdate(const QString &status)
@@ -257,9 +266,16 @@ void MainWindow::onStatusUpdate(const QString &status)
 // 每收到一帧车辆基础位置，就让车辆的 Y 方向逐渐靠近 Python 选中的 Lattice 横向目标，然后更新车辆显示，同时计算速度和累计里程。
 void MainWindow::onVehicleDataUpdated(double x, double y, double yaw)
 {
-    // Lattice 给的是目标横向位置，车辆用简单低通方式逐渐靠近目标
-    currentLateralOffset_ += (targetLateralOffset_ - currentLateralOffset_) * 0.3;
+    if (lateralPlanActive_)
+    {
+        currentLateralOffset_ = calculatePlannedOffset(x);
 
+        if (x >= planStartX_ + planningDistance_)
+        {
+            currentLateralOffset_ = targetLateralOffset_;
+            lateralPlanActive_ = false;
+        }
+    }
     // DataLoader 的 y 是基础位置，叠加规划产生的横向偏移
     double trueY = y + currentLateralOffset_;
 
@@ -609,6 +625,78 @@ void MainWindow::setupNetwork()
 
 void MainWindow::onLateralControlReceived(double offset)
 {
-    targetLateralOffset_ = offset;
-    view2D_->setPlannedOffset(offset);
+    // Python还是返回同一个目标，就继续执行当前轨迹，不重新规划
+    if (std::abs(offset - targetLateralOffset_) < 0.01)
+    {
+        return;
+    }
+
+    qDebug() << "新的Lattice目标:"
+             << offset
+             << "当前offset:"
+             << currentLateralOffset_
+             << "当前X:"
+             << lastX_;
+
+    // 目标真的发生变化，开始生成新的可执行横向轨迹
+    startLateralPlan(offset);
+}
+
+double MainWindow::calculatePlannedOffset(double x) const
+{
+    if (!lateralPlanActive_)
+    {
+        return targetLateralOffset_;
+    }
+
+    double u = (x - planStartX_) / planningDistance_;
+
+    if (u <= 0.0)
+    {
+        return planStartOffset_;
+    }
+
+    if (u >= 1.0)
+    {
+        return targetLateralOffset_;
+    }
+
+    double smooth = 3.0 * u * u - 2.0 * u * u * u;
+
+    return planStartOffset_ + (targetLateralOffset_ - planStartOffset_) * smooth;
+}
+
+void MainWindow::rebuildPlannedTrajectory()
+{
+    plannedTrajectory_.clear();
+
+    const int pointCount = 40;
+
+    for (int i = 0; i <= pointCount; ++i)
+    {
+        double u = static_cast<double>(i) / pointCount;
+        double smooth = 3.0 * u * u - 2.0 * u * u * u;
+
+        double x = planStartX_ + planningDistance_ * u;
+        double offset = planStartOffset_ + (targetLateralOffset_ - planStartOffset_) * smooth;
+
+        plannedTrajectory_.append(QPointF(x, offset));
+    }
+
+    view2D_->updatePlannedTrajectory(plannedTrajectory_);
+}
+
+void MainWindow::startLateralPlan(double targetOffset)
+{
+    planStartX_ = lastX_;
+    planStartOffset_ = currentLateralOffset_;
+    targetLateralOffset_ = targetOffset;
+    lateralPlanActive_ = true;
+
+    qDebug() << "开始横向规划:"
+             << "startX =" << planStartX_
+             << "startOffset =" << planStartOffset_
+             << "targetOffset =" << targetLateralOffset_;
+
+    rebuildPlannedTrajectory();
 }

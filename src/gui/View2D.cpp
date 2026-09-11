@@ -425,62 +425,33 @@ void View2D::setPlannedOffset(
 
 void View2D::drawPlanning(QPainter &painter)
 {
-    if (!planningActive_)
+    if (plannedTrajectory_.size() < 2)
     {
         return;
     }
 
-    // 保存画笔当前状态（颜色、线宽等），函数结尾painter.restore()恢复，防止绘图修改影响其他渲染内容。
     painter.save();
+    painter.setPen(QPen(QColor(0, 255, 136, 230), 3));
 
-    const double offsets[] =
-        {
-            -3.5,
-            -1.75,
-            0.0,
-            1.75,
-            3.5};
-
-    // 当前车辆屏幕位置
-    const double startX = width() / 4.0;
-
-    const double startY = height() / 2.0;
-
-    // 向前显示20米规划范围
-    const double planningDistance = 20.0;
-
-    const double endX = startX + planningDistance * zoom_;
-
-    for (double offset : offsets)
+    for (int i = 1; i < plannedTrajectory_.size(); ++i)
     {
-        // 世界Y正方向在屏幕上是向上
-        double endY = startY - offset * zoom_;
+        const QPointF &p1 = plannedTrajectory_[i - 1];
+        const QPointF &p2 = plannedTrajectory_[i];
 
-        bool selected = std::abs(offset - plannedOffset_) < 0.01;
+        QPointF s1(width() / 4.0 + (p1.x() - vehicleX_) * zoom_,
+                   height() / 2.0 - (p1.y() - vehicleY_) * zoom_);
 
-        if (selected)
-        {
-            painter.setPen(QPen(QColor(0, 255, 136, 230), 3, Qt::SolidLine));
-        }
-        else
-        {
-            painter.setPen(QPen(QColor(160, 170, 180, 80), 1, Qt::DashLine));
-        }
+        QPointF s2(width() / 4.0 + (p2.x() - vehicleX_) * zoom_,
+                   height() / 2.0 - (p2.y() - vehicleY_) * zoom_);
 
-        // 绘制三阶贝塞尔曲线
-        QPainterPath path;
-
-        path.moveTo(startX, startY);
-
-        double distance = endX - startX;
-
-        // 三阶贝塞尔曲线
-        path.cubicTo(startX + distance * 0.35, startY,
-                     startX + distance * 0.70, endY,
-                     endX, endY);
-
-        painter.drawPath(path);
+        painter.drawLine(s1, s2);
     }
 
     painter.restore();
+}
+
+void View2D::updatePlannedTrajectory(const QVector<QPointF> &trajectory)
+{
+    plannedTrajectory_ = trajectory;
+    update();
 }

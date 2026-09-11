@@ -39,6 +39,8 @@ public slots:
     // V0.10 接收Python选择的横向目标
     void setPlannedOffset(double offset);
 
+    void updatePlannedTrajectory(const QVector<QPointF> &trajectory);
+
 signals:
     void userObstacleAdded(
         double worldX,
@@ -92,6 +94,8 @@ private:
 
     // 是否已经收到过规划结果
     bool planningActive_ = false;
+
+    QVector<QPointF> plannedTrajectory_;
 };
 
 #endif // VIEW2D_H
