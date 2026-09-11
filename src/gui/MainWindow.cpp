@@ -121,10 +121,9 @@ void MainWindow::setupConnections()
     /*
      * DataLoader产生车辆数据  DataManager接收并保存
      */
-    connect(dataLoader_, &DataLoader::vehiclePositionReady,
-            dataManager_, &DataManager::updateVehicleState);
-    connect(dataManager_, &DataManager::vehicleStateUpdated,
-            this, &MainWindow::onVehicleDataUpdated);
+
+    connect(dataLoader_, &DataLoader::vehiclePositionReady, this, &MainWindow::onVehicleDataUpdated);
+    connect(this, &MainWindow::trueVehiclePositionReady, dataManager_, &DataManager::onVehiclePositionReceived);
 
     // DataLoader -> 状态栏
     connect(dataLoader_, &DataLoader::statusUpdate,
@@ -167,13 +166,6 @@ void MainWindow::setupConnections()
                 QMetaObject::invokeMethod(dataLoader_, "seekToFrame",
                                           Qt::QueuedConnection, Q_ARG(int, value));
             }); // QMetaObject::invokeMethod() 跨线程传递任务。
-
-    // 自车位置同时交给DataManager
-    connect(
-        dataLoader_,
-        &DataLoader::vehiclePositionReady,
-        dataManager_,
-        &DataManager::onVehiclePositionReceived);
 
     // 原始点云进入DataManager
     connect(
@@ -243,6 +235,8 @@ void MainWindow::onStopSimulation()
     totalDistance_ = 0.0;
     lastX_ = 0.0;
     lastY_ = 0.0;
+    targetLateralOffset_ = 0.0;
+    currentLateralOffset_ = 0.0;
 
     if (speedValue_)
         speedValue_->setText("0.0 km/h");
@@ -260,48 +254,47 @@ void MainWindow::onStatusUpdate(const QString &status)
     statusBar()->showMessage(status);
 }
 
-void MainWindow::onVehicleDataUpdated(double x,
-                                      double y,
-                                      double yaw)
+// 每收到一帧车辆基础位置，就让车辆的 Y 方向逐渐靠近 Python 选中的 Lattice 横向目标，然后更新车辆显示，同时计算速度和累计里程。
+void MainWindow::onVehicleDataUpdated(double x, double y, double yaw)
 {
-    // 更新二维视图
-    view2D_->updateVehiclePosition(x, y, yaw);
+    // Lattice 给的是目标横向位置，车辆用简单低通方式逐渐靠近目标
+    currentLateralOffset_ += (targetLateralOffset_ - currentLateralOffset_) * 0.3;
 
-    // 从第二帧开始计算位移
+    // DataLoader 的 y 是基础位置，叠加规划产生的横向偏移
+    double trueY = y + currentLateralOffset_;
+
+    // 更新真实车辆显示位置
+    view2D_->updateVehiclePosition(x, trueY, yaw);
+
+    // 把真实车辆位置重新送回 DataManager
+    emit trueVehiclePositionReady(x, trueY, yaw);
+
+    // 从第二帧开始计算真实行驶距离
     if (lastX_ != 0.0 || lastY_ != 0.0)
     {
         double dx = x - lastX_;
-        double dy = y - lastY_;
-
-        double distance =
-            std::sqrt(dx * dx + dy * dy);
+        double dy = trueY - lastY_;
+        double distance = std::sqrt(dx * dx + dy * dy);
 
         totalDistance_ += distance;
 
-        // 每帧间隔 0.1 秒
-        double speed =
-            distance / 0.1;
-
-        // m/s -> km/h
-        double speedKmH =
-            speed * 3.6;
+        // 每帧0.1秒
+        double speed = distance / 0.1;
+        double speedKmH = speed * 3.6;
 
         if (speedValue_)
         {
-            speedValue_->setText(
-                QString::number(speedKmH, 'f', 1) + " km/h");
+            speedValue_->setText(QString::number(speedKmH, 'f', 1) + " km/h");
         }
 
         if (distanceValue_)
         {
-            distanceValue_->setText(
-                QString::number(totalDistance_, 'f', 1) + " m");
+            distanceValue_->setText(QString::number(totalDistance_, 'f', 1) + " m");
         }
     }
 
-    // 保存这一帧的位置
     lastX_ = x;
-    lastY_ = y;
+    lastY_ = trueY;
 }
 
 /**
@@ -570,9 +563,7 @@ void MainWindow::setupNetwork()
     // =====================================
     // 4. 规划结果 -> View2D
     // =====================================
-
-    connect(dataManager_, &DataManager::lateralControlReceived,
-            view2D_, &View2D::setPlannedOffset);
+    connect(dataManager_, &DataManager::lateralControlReceived, this, &MainWindow::onLateralControlReceived);
 
     // =====================================
     // 5. 显示规划结果
@@ -614,4 +605,10 @@ void MainWindow::setupNetwork()
     {
         statusBar()->showMessage("TCP Server启动失败");
     }
+}
+
+void MainWindow::onLateralControlReceived(double offset)
+{
+    targetLateralOffset_ = offset;
+    view2D_->setPlannedOffset(offset);
 }

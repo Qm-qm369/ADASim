@@ -24,6 +24,10 @@ public:
                         QWidget *parent = nullptr);
     ~MainWindow();
 
+signals:
+    // 规划执行完以后，这是车辆真正的位置
+    void trueVehiclePositionReady(double x, double y, double yaw);
+
 private:
     void setupUI();
 
@@ -67,6 +71,8 @@ protected:
 
 private slots:
 
+    void onLateralControlReceived(double offset);
+
     void onStartSimulation();
     void onPauseSimulation();
     void onStopSimulation();
@@ -108,6 +114,9 @@ private:
 
     // V0.10 TCP服务器
     SocketServer *socketServer_ = nullptr;
+
+    double targetLateralOffset_ = 0.0;  // 算法想让我去哪
+    double currentLateralOffset_ = 0.0; // 车辆现在实际移动到哪
 };
 
 #endif
