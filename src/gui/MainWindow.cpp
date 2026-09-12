@@ -266,26 +266,29 @@ void MainWindow::onStatusUpdate(const QString &status)
 // 每收到一帧车辆基础位置，就让车辆的 Y 方向逐渐靠近 Python 选中的 Lattice 横向目标，然后更新车辆显示，同时计算速度和累计里程。
 void MainWindow::onVehicleDataUpdated(double x, double y, double yaw)
 {
+    double trueYaw = yaw;
+
     if (lateralPlanActive_)
     {
         currentLateralOffset_ = calculatePlannedOffset(x);
+        trueYaw = calculatePlannedYaw(x);
 
         if (x >= planStartX_ + planningDistance_)
         {
             currentLateralOffset_ = targetLateralOffset_;
             lateralPlanActive_ = false;
+            trueYaw = yaw;
         }
     }
-    // DataLoader 的 y 是基础位置，叠加规划产生的横向偏移
+
     double trueY = y + currentLateralOffset_;
 
-    // 更新真实车辆显示位置
-    view2D_->updateVehiclePosition(x, trueY, yaw);
+    // 现在位置和朝向都使用规划后的真实状态
+    view2D_->updateVehiclePosition(x, trueY, trueYaw);
 
-    // 把真实车辆位置重新送回 DataManager
-    emit trueVehiclePositionReady(x, trueY, yaw);
+    // DataManager也收到真实位置和真实航向
+    emit trueVehiclePositionReady(x, trueY, trueYaw);
 
-    // 从第二帧开始计算真实行驶距离
     if (lastX_ != 0.0 || lastY_ != 0.0)
     {
         double dx = x - lastX_;
@@ -294,7 +297,6 @@ void MainWindow::onVehicleDataUpdated(double x, double y, double yaw)
 
         totalDistance_ += distance;
 
-        // 每帧0.1秒
         double speed = distance / 0.1;
         double speedKmH = speed * 3.6;
 
@@ -664,6 +666,24 @@ double MainWindow::calculatePlannedOffset(double x) const
     double smooth = 3.0 * u * u - 2.0 * u * u * u;
 
     return planStartOffset_ + (targetLateralOffset_ - planStartOffset_) * smooth;
+}
+
+double MainWindow::calculatePlannedYaw(double x) const
+{
+    if (!lateralPlanActive_)
+    {
+        return 0.0;
+    }
+
+    const double sampleDistance = 0.1;
+
+    double y1 = calculatePlannedOffset(x);
+    double y2 = calculatePlannedOffset(x + sampleDistance);
+
+    double dx = sampleDistance;
+    double dy = y2 - y1;
+
+    return std::atan2(dy, dx);
 }
 
 void MainWindow::rebuildPlannedTrajectory()

@@ -85,6 +85,7 @@ private slots:
 
     void startLateralPlan(double targetOffset);    // 创建一轮新的横向规划
     double calculatePlannedOffset(double x) const; // 根据当前X计算车辆现在应该处于什么横向位置
+    double calculatePlannedYaw(double x) const;    // 计算转向角
     void rebuildPlannedTrajectory();               // 提前生成一些轨迹点供View2D显示
 
 private:
