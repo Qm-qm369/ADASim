@@ -8,9 +8,6 @@
 #include <QVector>
 #include <QPointF>
 #include <cmath>
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 #include "algorithm/VehicleModel.h"
 #include "View2D.h"
@@ -18,6 +15,7 @@
 #include "backend/DataManager.h"
 #include "SensorView.h"
 #include "communication/Socket.h"
+#include "algorithm/TrajectoryController.h"
 
 class QLayout;
 class View2D;
@@ -148,6 +146,11 @@ private:
     // V1.4 简化车辆运动模型
     VehicleModel vehicleModel_;
 
+    TrajectoryController trajectoryController_;
+
+    // 提前看前方2米的轨迹方向
+    double lookAheadDistance_ = 2.0;
+
     // 车辆模型是否已经获得初始位置
     bool vehicleModelInitialized_ = false;
 
@@ -156,12 +159,6 @@ private:
 
     // DataLoader当前100ms一帧
     double simulationDt_ = 0.1;
-
-    // 航向角P控制增益 ⭐️
-    double steeringKp_ = 1.5;
-
-    // 最大前轮转角约25度
-    double maxSteeringAngle_ = 25.0 * M_PI / 180.0; // double maxSteeringAngle_ = 0.436332;
 };
 
 #endif

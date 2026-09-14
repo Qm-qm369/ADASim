@@ -253,6 +253,13 @@ void MainWindow::onStopSimulation()
 
     vehicleModel_.reset();
     vehicleModelInitialized_ = false;
+
+    if (view2D_)
+    {
+        view2D_->updateVehiclePosition(0.0, 0.0, 0.0);
+        view2D_->updatePlannedTrajectory(QVector<QPointF>());
+        view2D_->clearTrackingDebug();
+    }
 }
 
 void MainWindow::onStatusUpdate(const QString &status)
@@ -262,7 +269,7 @@ void MainWindow::onStatusUpdate(const QString &status)
 
 void MainWindow::onVehicleDataUpdated(double x, double y, double yaw)
 {
-    // 第一次收到DataLoader状态时，用它初始化车辆模型
+    // 第一次收到基础状态时初始化车辆模型
     if (!vehicleModelInitialized_)
     {
         vehicleModel_.setState(x, y, yaw);
@@ -272,84 +279,151 @@ void MainWindow::onVehicleDataUpdated(double x, double y, double yaw)
     VehicleState currentState = vehicleModel_.state();
 
     // =====================================================
-    // 1. 根据参考轨迹计算目标航向
+    // 1. 判断SmoothStep过渡段是否已经走完
     // =====================================================
+
+    if (lateralPlanActive_ && currentState.x >= planStartX_ + planningDistance_)
+    {
+        lateralPlanActive_ = false;
+    }
+
+    // =====================================================
+    // 2. 当前X位置应该对应哪个Y
+    // =====================================================
+
+    double targetY = calculatePlannedOffset(currentState.x);
+
+    // =====================================================
+    // 3. 提前看前方2米轨迹方向
+    // =====================================================
+
+    double previewX = currentState.x + lookAheadDistance_;
 
     double targetYaw = 0.0;
 
     if (lateralPlanActive_)
     {
-        targetYaw = calculatePlannedYaw(currentState.x);
+        targetYaw = calculatePlannedYaw(previewX);
+    }
 
-        if (currentState.x >= planStartX_ + planningDistance_)
+    // =====================================================
+    // 4. 横向误差 + 航向误差 -> 转向角
+    // =====================================================
+
+    ControlOutput control = trajectoryController_.compute(
+        currentState,
+        targetY,
+        targetYaw,
+        vehicleSpeed_);
+
+    // =====================================================
+    // 5. VehicleModel真正更新车辆位置
+    // =====================================================
+
+    VehicleState newState = vehicleModel_.update(
+        vehicleSpeed_,
+        control.steeringAngle,
+        simulationDt_);
+
+    currentLateralOffset_ = newState.y;
+
+    // =====================================================
+    // 6. 新位置对应的参考Y
+    // =====================================================
+
+    double newTargetY = calculatePlannedOffset(newState.x);
+
+    double currentLateralError = newTargetY - newState.y;
+
+    // =====================================================
+    // 7. 判断车辆是否真正稳定到目标位置
+    // =====================================================
+
+    bool targetSettled =
+        !lateralPlanActive_ &&
+        std::abs(currentLateralError) < 0.05 &&
+        std::abs(newState.yaw) < 0.02;
+
+    // =====================================================
+    // 8. 显示真实车辆
+    // =====================================================
+
+    view2D_->updateVehiclePosition(
+        newState.x,
+        newState.y,
+        newState.yaw);
+
+    // V1.5控制调试信息
+    view2D_->updateTrackingDebug(
+        QPointF(newState.x, newTargetY),
+        currentLateralError,
+        control.steeringAngle);
+
+    // =====================================================
+    // 9. 真实状态反馈给DataManager
+    // =====================================================
+
+    emit trueVehiclePositionReady(
+        newState.x,
+        newState.y,
+        newState.yaw);
+
+    // =====================================================
+    // 10. 顶部算法状态
+    // =====================================================
+
+    if (algoValue_)
+    {
+        double steeringDegree =
+            control.steeringAngle * 180.0 / M_PI;
+
+        if (targetSettled)
         {
-            lateralPlanActive_ = false;
-            targetYaw = 0.0;
+            algoValue_->setText(
+                QString("已稳定 %1 m")
+                    .arg(newState.y, 0, 'f', 2));
+        }
+        else
+        {
+            algoValue_->setText(
+                QString("横差 %1 m  转角 %2°")
+                    .arg(currentLateralError, 0, 'f', 2)
+                    .arg(steeringDegree, 0, 'f', 1));
         }
     }
 
     // =====================================================
-    // 2. 当前航向和目标航向之间的误差
-    // =====================================================
-
-    double yawError = normalizeAngle(targetYaw - currentState.yaw);
-
-    // =====================================================
-    // 3. 简单P控制器：误差 -> 转向角
-    // =====================================================
-
-    double steeringAngle = steeringKp_ * yawError;
-
-    // 限制最大转向角
-    if (steeringAngle > maxSteeringAngle_)
-    {
-        steeringAngle = maxSteeringAngle_;
-    }
-
-    if (steeringAngle < -maxSteeringAngle_)
-    {
-        steeringAngle = -maxSteeringAngle_;
-    }
-
-    // =====================================================
-    // 4. 车辆模型自己算下一帧X/Y/Yaw
-    // =====================================================
-
-    VehicleState newState = vehicleModel_.update(vehicleSpeed_, steeringAngle, simulationDt_);
-
-    // 当前真实横向位置
-    currentLateralOffset_ = newState.y;
-
-    // =====================================================
-    // 5. 把真实车辆状态交给显示和感知
-    // =====================================================
-
-    view2D_->updateVehiclePosition(newState.x, newState.y, newState.yaw);
-    emit trueVehiclePositionReady(newState.x, newState.y, newState.yaw);
-
-    // =====================================================
-    // 6. 计算真实里程和速度
+    // 11. 里程与速度
     // =====================================================
 
     if (lastX_ != 0.0 || lastY_ != 0.0)
     {
         double dx = newState.x - lastX_;
         double dy = newState.y - lastY_;
-        double distance = std::sqrt(dx * dx + dy * dy);
+
+        double distance =
+            std::sqrt(dx * dx + dy * dy);
 
         totalDistance_ += distance;
 
-        double speed = distance / simulationDt_;
-        double speedKmH = speed * 3.6;
+        double speed =
+            distance / simulationDt_;
+
+        double speedKmH =
+            speed * 3.6;
 
         if (speedValue_)
         {
-            speedValue_->setText(QString::number(speedKmH, 'f', 1) + " km/h");
+            speedValue_->setText(
+                QString::number(speedKmH, 'f', 1) +
+                " km/h");
         }
 
         if (distanceValue_)
         {
-            distanceValue_->setText(QString::number(totalDistance_, 'f', 1) + " m");
+            distanceValue_->setText(
+                QString::number(totalDistance_, 'f', 1) +
+                " m");
         }
     }
 
@@ -686,6 +760,7 @@ void MainWindow::onLateralControlReceived(double offset)
     startLateralPlan(offset);
 }
 
+// 平滑横向偏移过渡函数
 double MainWindow::calculatePlannedOffset(double x) const
 {
     if (!lateralPlanActive_)
@@ -705,6 +780,7 @@ double MainWindow::calculatePlannedOffset(double x) const
         return targetLateralOffset_;
     }
 
+    // 三阶多项式平滑（S型曲线，hermite平滑）
     double smooth = 3.0 * u * u - 2.0 * u * u * u;
 
     return planStartOffset_ + (targetLateralOffset_ - planStartOffset_) * smooth;

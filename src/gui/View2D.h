@@ -36,10 +36,14 @@ public slots:
                                double yaw);
     void drawTrajectory(QPainter &painter);
 
-    // V0.10 接收Python选择的横向目标
-    void setPlannedOffset(double offset);
-
     void updatePlannedTrajectory(const QVector<QPointF> &trajectory);
+
+    void updateTrackingDebug(
+        const QPointF &targetPoint,
+        double lateralError,
+        double steeringAngle);
+
+    void clearTrackingDebug();
 
 signals:
     void userObstacleAdded(
@@ -69,6 +73,8 @@ private:
     // 绘制Lattice候选轨迹
     void drawPlanning(QPainter &painter);
 
+    void drawTrackingDebug(QPainter &painter);
+
 private:
     // PathPredictor预测出的未来世界坐标
     QVector<QPointF> predictedPath_;
@@ -89,13 +95,14 @@ private:
     double vehicleY_ = 0.0;
     double vehicleYaw_ = 0.0;
 
-    // Python当前选择的横向偏移
-    double plannedOffset_ = 0.0;
-
-    // 是否已经收到过规划结果
-    bool planningActive_ = false;
-
     QVector<QPointF> plannedTrajectory_;
+
+    QPointF trackingTarget_;
+
+    double trackingLateralError_ = 0.0;
+    double steeringAngle_ = 0.0;
+
+    bool trackingDebugActive_ = false;
 };
 
 #endif // VIEW2D_H

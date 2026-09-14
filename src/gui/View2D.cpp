@@ -48,6 +48,8 @@ void View2D::paintEvent(QPaintEvent *event)
     // V0.10规划候选轨迹
     drawPlanning(painter);
 
+    drawTrackingDebug(painter);
+
     // 障碍物
     drawObstacles(painter);
 
@@ -413,16 +415,6 @@ void View2D::drawPredictedPath(
     painter.restore();
 }
 
-void View2D::setPlannedOffset(
-    double offset)
-{
-    plannedOffset_ = offset;
-
-    planningActive_ = true;
-
-    update();
-}
-
 void View2D::drawPlanning(QPainter &painter)
 {
     if (plannedTrajectory_.size() < 2)
@@ -454,4 +446,82 @@ void View2D::updatePlannedTrajectory(const QVector<QPointF> &trajectory)
 {
     plannedTrajectory_ = trajectory;
     update();
+}
+
+void View2D::updateTrackingDebug(
+    const QPointF &targetPoint,
+    double lateralError,
+    double steeringAngle)
+{
+    trackingTarget_ = targetPoint;
+    trackingLateralError_ = lateralError;
+    steeringAngle_ = steeringAngle;
+    trackingDebugActive_ = true;
+
+    update();
+}
+
+void View2D::clearTrackingDebug()
+{
+    trackingDebugActive_ = false;
+
+    update();
+}
+
+void View2D::drawTrackingDebug(QPainter &painter)
+{
+    if (!trackingDebugActive_)
+    {
+        return;
+    }
+
+    painter.save();
+
+    QPointF vehicleScreen(
+        width() / 4.0,
+        height() / 2.0);
+
+    QPointF targetScreen(
+        width() / 4.0 +
+            (trackingTarget_.x() - vehicleX_) * zoom_,
+
+        height() / 2.0 -
+            (trackingTarget_.y() - vehicleY_) * zoom_);
+
+    // 车辆到参考轨迹的误差线
+    painter.setPen(
+        QPen(
+            QColor(255, 210, 0, 220),
+            2,
+            Qt::DashLine));
+
+    painter.drawLine(
+        vehicleScreen,
+        targetScreen);
+
+    // 参考目标点
+    painter.setBrush(
+        QColor(255, 210, 0));
+
+    painter.drawEllipse(
+        targetScreen,
+        5,
+        5);
+
+    // 控制信息
+    painter.setPen(Qt::white);
+
+    double steeringDegree =
+        steeringAngle_ * 180.0 / M_PI;
+
+    painter.drawText(
+        QPointF(
+            vehicleScreen.x() + 20,
+            vehicleScreen.y() - 30),
+
+        QString("eY=%1 m  steer=%2 deg")
+            .arg(trackingLateralError_, 0, 'f', 2)
+            .arg(steeringDegree, 0, 'f', 1));
+
+    painter.restore();
 }

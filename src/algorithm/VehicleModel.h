@@ -1,3 +1,7 @@
+/*
+    根据方向盘算车辆运动
+*/
+
 #ifndef VEHICLEMODEL_H
 #define VEHICLEMODEL_H
 
@@ -23,7 +27,7 @@ public:
     VehicleState update(double speed, double steeringAngle, double dt);
 
     // 获取当前车辆状态
-    VehicleState state() const; // 末尾const**承诺这个成员函数不会修改当前对象的成员变量**。
+    VehicleState state() const; // 末尾const 承诺这个成员函数不会修改当前对象的成员变量。
 
 private:
     VehicleState state_;

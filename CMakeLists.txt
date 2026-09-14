@@ -31,6 +31,7 @@ set(PROJECT_SOURCES
     src/algorithm/PathPredictor.cpp
     src/communication/Socket.cpp
     src/algorithm/VehicleModel.cpp
+    src/algorithm/TrajectoryController
 )
 
 # 创建可执行文件
