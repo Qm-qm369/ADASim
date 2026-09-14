@@ -254,3 +254,16 @@ void DataManager::onPlannerDataReceived(const QByteArray &data)
 
     emit lateralControlReceived(offset);
 }
+
+void DataManager::onSimulationFrame(
+    double x,
+    double y,
+    double yaw,
+    const QVector<QPointF> &points)
+{
+    // 先更新这一帧真实车辆状态
+    onVehiclePositionReceived(x, y, yaw);
+
+    // 再使用这一帧车辆状态处理这一帧点云
+    onPointCloudReceived(points);
+}

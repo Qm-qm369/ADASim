@@ -71,6 +71,12 @@ public slots:
     // 接收Python Planner返回的数据
     void onPlannerDataReceived(const QByteArray &data);
 
+    void onSimulationFrame(
+        double x,
+        double y,
+        double yaw,
+        const QVector<QPointF> &points);
+
 private:
     // 轨迹预测算法
     PathPredictor pathPredictor_;

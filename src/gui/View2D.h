@@ -37,7 +37,7 @@ public slots:
     void drawTrajectory(QPainter &painter);
 
     void updatePlannedTrajectory(const QVector<QPointF> &trajectory);
-
+    // 更新车道跟踪 / 目标跟踪模块的调试信息，在界面上绘图展示。
     void updateTrackingDebug(
         const QPointF &targetPoint,
         double lateralError,
@@ -74,6 +74,8 @@ private:
     void drawPlanning(QPainter &painter);
 
     void drawTrackingDebug(QPainter &painter);
+
+    void showReplayFrame(double x, double y, double yaw);
 
 private:
     // PathPredictor预测出的未来世界坐标

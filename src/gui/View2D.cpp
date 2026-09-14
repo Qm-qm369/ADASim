@@ -525,3 +525,12 @@ void View2D::drawTrackingDebug(QPainter &painter)
 
     painter.restore();
 }
+
+void View2D::showReplayFrame(double x, double y, double yaw)
+{
+    vehicleX_ = x;
+    vehicleY_ = y;
+    vehicleYaw_ = yaw;
+
+    update();
+}

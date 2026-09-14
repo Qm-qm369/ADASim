@@ -16,6 +16,7 @@
 #include "SensorView.h"
 #include "communication/Socket.h"
 #include "algorithm/TrajectoryController.h"
+#include "backend/SimulationRecorder.h"
 
 class QLayout;
 class View2D;
@@ -36,8 +37,12 @@ public:
     ~MainWindow();
 
 signals:
-    // 规划执行完以后，这是车辆真正的位置
-    void trueVehiclePositionReady(double x, double y, double yaw);
+    // 这是当前这一帧的车辆状态 + 当前这一帧传感器数据。
+    void simulationFrameReady(
+        double x,
+        double y,
+        double yaw,
+        const QVector<QPointF> &points);
 
 private:
     void setupUI();
@@ -88,15 +93,15 @@ private slots:
     void onPauseSimulation();
     void onStopSimulation();
     void onStatusUpdate(const QString &status);
-    void onVehicleDataUpdated(double x,
-                              double y,
-                              double yaw);
 
     void startLateralPlan(double targetOffset);    // 创建一轮新的横向规划
     double calculatePlannedOffset(double x) const; // 根据当前X计算车辆现在应该处于什么横向位置
     double calculatePlannedYaw(double x) const;    // 计算转向角
     double normalizeAngle(double angle) const;     // 角度归一化 把角度误差限制在： -180° ~ +180°
     void rebuildPlannedTrajectory();               // 提前生成一些轨迹点供View2D显示
+
+    void onSimulationTick(const QVector<QPointF> &points);
+    void onReplayFrameSelected(int index);
 
 private:
     // 行车记录仪时间轴
@@ -159,6 +164,10 @@ private:
 
     // DataLoader当前100ms一帧
     double simulationDt_ = 0.1;
+
+    SimulationRecorder simulationRecorder_;
+
+    bool replayMode_ = false;
 };
 
 #endif

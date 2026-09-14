@@ -2,7 +2,7 @@
 
 DataLoader::DataLoader(const QString &dataPath,
                        QObject *parent)
-    : QObject(parent), dataPath_(dataPath), replayCursor_(-1), isRunning_(false), timer_(new QTimer(this))
+    : QObject(parent), dataPath_(dataPath), isRunning_(false), timer_(new QTimer(this))
 {
     // QVector<QPointF> 后面需要跨线程传输
     // 把 QVector<QPointF> 这种数据类型登记到 Qt 的“类型系统”里，让 Qt 知道这种类型。
@@ -26,31 +26,6 @@ DataLoader::DataLoader(const QString &dataPath,
 DataLoader::~DataLoader()
 {
     stop();
-}
-
-// 实现时光倒流函数
-void DataLoader::seekToFrame(int index)
-{
-    if (index < 0 ||
-        index >= historyQueue_.size())
-    {
-        return;
-    }
-
-    replayCursor_ = index;
-
-    FrameState state = historyQueue_[index];
-
-    // 更新车辆位置
-    emit vehiclePositionReady(
-        state.x,
-        state.y,
-        state.yaw);
-
-    // 同时重新触发当前帧的感知计算
-    emit pointCloudReady(QVector<QPointF>());
-
-    emit currentFrameUpdated(index);
 }
 
 /**
@@ -100,92 +75,19 @@ void DataLoader::stop()
         timer_->stop();
     }
 
-    // 清空所有历史状态
-    historyQueue_.clear();
-
-    liveSandboxX_ = 0.0;
-
-    replayCursor_ = -1;
-
-    // 重置时间轴
-    emit totalFramesLoaded(0);
-
-    emit currentFrameUpdated(0);
-
-    emit statusUpdate(
-        "引擎已停止并重置");
+    emit statusUpdate("引擎已停止并重置");
 }
 
-/**
- * 每100ms生成一帧车辆状态
- */
+/*
+    彻底不管  X是多少 Y是多少 Yaw是多少
+    它只说：下一帧时间到了。
+*/
 void DataLoader::loadNextFrame()
 {
     if (!isRunning_)
-        return;
-
-    // ======================================
-    // 模式1：正在播放历史缓存
-    // ======================================
-
-    if (replayCursor_ >= 0 &&
-        replayCursor_ < historyQueue_.size() - 1)
     {
-        // 播放下一帧历史数据
-        replayCursor_++;
-
-        FrameState state =
-            historyQueue_[replayCursor_];
-
-        emit vehiclePositionReady(
-            state.x,
-            state.y,
-            state.yaw);
-
-        // 历史回放时也重新计算雷达数据
-        emit pointCloudReady(QVector<QPointF>());
-
-        // 更新 UI 时间轴位置
-        emit currentFrameUpdated(replayCursor_);
-
         return;
     }
 
-    // ======================================
-    // 模式2：已经追上最新时间，生成未来
-    // ======================================
-
-    replayCursor_ = -1;
-
-    // 沙盒车辆继续向前
-    liveSandboxX_ += 0.5;
-
-    FrameState state{
-        liveSandboxX_,
-        0.0,
-        0.0};
-
-    // 保存新产生的一帧
-    historyQueue_.append(state);
-
-    // FIFO：最多保存100帧
-    if (historyQueue_.size() > 100)
-    {
-        historyQueue_.pop_front();
-    }
-
-    // 分发车辆状态
-    emit vehiclePositionReady(
-        state.x,
-        state.y,
-        state.yaw);
-
-    // 发出一帧基础点云
-    emit pointCloudReady(QVector<QPointF>());
-
-    // 通知时间轴当前缓存大小
-    emit totalFramesLoaded(historyQueue_.size());
-
-    // 滑块跟随到最新的一帧
-    emit currentFrameUpdated(historyQueue_.size() - 1);
+    emit simulationTick(QVector<QPointF>());
 }

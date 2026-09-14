@@ -112,16 +112,13 @@ void MainWindow::closeEvent(QCloseEvent *event)
 // 建立真正的数据连接
 void MainWindow::setupConnections()
 {
-    /*
-     * DataLoader产生车辆数据  DataManager接收并保存
-     */
 
-    connect(dataLoader_, &DataLoader::vehiclePositionReady, this, &MainWindow::onVehicleDataUpdated);
-    connect(this, &MainWindow::trueVehiclePositionReady, dataManager_, &DataManager::onVehiclePositionReceived);
+    connect(dataLoader_, &DataLoader::simulationTick, this, &MainWindow::onSimulationTick);
+
+    connect(this, &MainWindow::simulationFrameReady, dataManager_, &DataManager::onSimulationFrame);
 
     // DataLoader -> 状态栏
-    connect(dataLoader_, &DataLoader::statusUpdate,
-            this, &MainWindow::onStatusUpdate);
+    connect(dataLoader_, &DataLoader::statusUpdate, this, &MainWindow::onStatusUpdate);
 
     connect(dataLoader_, &DataLoader::totalFramesLoaded,
             this, [this](int total)
@@ -149,24 +146,7 @@ void MainWindow::setupConnections()
 
             timeLabel_->setText(QString("%1 / %2").arg(current). arg(timeSlider_->maximum())); });
 
-    connect(timeSlider_, &QSlider::valueChanged,
-            this,
-            [this](int value)
-            {
-                // 更新显示
-                timeLabel_->setText(QString("%1 / %2").arg(value).arg(timeSlider_->maximum()));
-
-                // 通知后台回放指定帧
-                QMetaObject::invokeMethod(dataLoader_, "seekToFrame",
-                                          Qt::QueuedConnection, Q_ARG(int, value));
-            }); // QMetaObject::invokeMethod() 跨线程传递任务。
-
-    // 原始点云进入DataManager
-    connect(
-        dataLoader_,
-        &DataLoader::pointCloudReady,
-        dataManager_,
-        &DataManager::onPointCloudReceived);
+    connect(timeSlider_, &QSlider::valueChanged, this, &MainWindow::onReplayFrameSelected);
 
     // 最终点云给SensorView
     connect(
@@ -203,7 +183,24 @@ void MainWindow::setupConnections()
 
 void MainWindow::onStartSimulation()
 {
-    // 跨线程调用对象的 `start()` 槽函数，使用队列方式投递事件，不阻塞当前线程。
+    if (!vehicleModelInitialized_)
+    {
+        vehicleModel_.setState(0.0, 0.0, 0.0);
+        vehicleModelInitialized_ = true;
+    }
+
+    if (replayMode_)
+    {
+        replayMode_ = false;
+
+        VehicleState state = vehicleModel_.state();
+
+        view2D_->showReplayFrame(
+            state.x,
+            state.y,
+            state.yaw);
+    }
+
     QMetaObject::invokeMethod(
         dataLoader_,
         "start",
@@ -254,6 +251,18 @@ void MainWindow::onStopSimulation()
     vehicleModel_.reset();
     vehicleModelInitialized_ = false;
 
+    simulationRecorder_.clear();
+
+    replayMode_ = false;
+
+    timeSlider_->blockSignals(true);
+    timeSlider_->setMinimum(0);
+    timeSlider_->setMaximum(0);
+    timeSlider_->setValue(0);
+    timeSlider_->blockSignals(false);
+
+    timeLabel_->setText("0 / 0");
+
     if (view2D_)
     {
         view2D_->updateVehiclePosition(0.0, 0.0, 0.0);
@@ -267,34 +276,46 @@ void MainWindow::onStatusUpdate(const QString &status)
     statusBar()->showMessage(status);
 }
 
-void MainWindow::onVehicleDataUpdated(double x, double y, double yaw)
+/*
+每一帧仿真的总入口
+
+轨迹跟踪
+→ 控制器
+→ 车辆模型
+→ 速度/里程
+→ 感知数据
+→ 历史录像
+→ 时间轴
+→ UI显示
+*/
+void MainWindow::onSimulationTick(const QVector<QPointF> &points)
 {
-    // 第一次收到基础状态时初始化车辆模型
-    if (!vehicleModelInitialized_)
+    // 两种情况下不允许继续推进车辆  车辆模型还没初始化 或者现在正在历史回放
+    if (!vehicleModelInitialized_ || replayMode_)
     {
-        vehicleModel_.setState(x, y, yaw);
-        vehicleModelInitialized_ = true;
+        return;
     }
 
     VehicleState currentState = vehicleModel_.state();
 
     // =====================================================
-    // 1. 判断SmoothStep过渡段是否已经走完
+    // 1. 判断SmoothStep过渡段是否结束
     // =====================================================
 
-    if (lateralPlanActive_ && currentState.x >= planStartX_ + planningDistance_)
+    if (lateralPlanActive_ &&
+        currentState.x >= planStartX_ + planningDistance_)
     {
         lateralPlanActive_ = false;
     }
 
     // =====================================================
-    // 2. 当前X位置应该对应哪个Y
+    // 2. 当前参考横向位置
     // =====================================================
 
     double targetY = calculatePlannedOffset(currentState.x);
 
     // =====================================================
-    // 3. 提前看前方2米轨迹方向
+    // 3. 前视参考航向
     // =====================================================
 
     double previewX = currentState.x + lookAheadDistance_;
@@ -307,7 +328,7 @@ void MainWindow::onVehicleDataUpdated(double x, double y, double yaw)
     }
 
     // =====================================================
-    // 4. 横向误差 + 航向误差 -> 转向角
+    // 4. 双误差控制器计算前轮转角
     // =====================================================
 
     ControlOutput control = trajectoryController_.compute(
@@ -317,7 +338,7 @@ void MainWindow::onVehicleDataUpdated(double x, double y, double yaw)
         vehicleSpeed_);
 
     // =====================================================
-    // 5. VehicleModel真正更新车辆位置
+    // 5. VehicleModel执行这一帧运动
     // =====================================================
 
     VehicleState newState = vehicleModel_.update(
@@ -328,24 +349,34 @@ void MainWindow::onVehicleDataUpdated(double x, double y, double yaw)
     currentLateralOffset_ = newState.y;
 
     // =====================================================
-    // 6. 新位置对应的参考Y
+    // 6. 更新后的车辆重新计算参考误差
     // =====================================================
 
     double newTargetY = calculatePlannedOffset(newState.x);
-
     double currentLateralError = newTargetY - newState.y;
 
-    // =====================================================
-    // 7. 判断车辆是否真正稳定到目标位置
-    // =====================================================
-
+    // 判断车辆是不是真的稳定了
     bool targetSettled =
         !lateralPlanActive_ &&
         std::abs(currentLateralError) < 0.05 &&
         std::abs(newState.yaw) < 0.02;
 
     // =====================================================
-    // 8. 显示真实车辆
+    // 7. 根据这一帧实际运动距离统计速度、里程
+    // =====================================================
+
+    double dx = newState.x - currentState.x;
+    double dy = newState.y - currentState.y;
+
+    double distance = std::sqrt(dx * dx + dy * dy);
+
+    totalDistance_ += distance;
+
+    double speed = distance / simulationDt_;
+    double speedKmH = speed * 3.6;
+
+    // =====================================================
+    // 8. 显示真实车辆状态
     // =====================================================
 
     view2D_->updateVehiclePosition(
@@ -353,24 +384,90 @@ void MainWindow::onVehicleDataUpdated(double x, double y, double yaw)
         newState.y,
         newState.yaw);
 
-    // V1.5控制调试信息
     view2D_->updateTrackingDebug(
         QPointF(newState.x, newTargetY),
         currentLateralError,
         control.steeringAngle);
 
     // =====================================================
-    // 9. 真实状态反馈给DataManager
+    // 9. 当前完整仿真帧交给DataManager
     // =====================================================
 
-    emit trueVehiclePositionReady(
+    emit simulationFrameReady(
         newState.x,
         newState.y,
-        newState.yaw);
+        newState.yaw,
+        points);
+
+    /*
+    =====================================================
+    SimulationFrame 10. 保存真实历史帧
+
+    车辆状态
+    ├─ x
+    ├─ y
+    └─ yaw
+
+    规划状态
+    ├─ targetY
+    └─ targetYaw
+
+    控制状态
+    ├─ lateralError
+    ├─ headingError
+    └─ steeringAngle
+
+    统计状态
+    ├─ speedKmH
+    └─ totalDistance
+    =====================================================
+    */
+    SimulationFrame frame;
+
+    frame.vehicle = newState;
+    frame.targetY = newTargetY;
+    frame.targetYaw = targetYaw;
+    frame.lateralError = currentLateralError;
+    frame.headingError = control.headingError;
+    frame.steeringAngle = control.steeringAngle;
+    frame.speedKmH = speedKmH;
+    frame.totalDistance = totalDistance_;
+
+    simulationRecorder_.append(frame);
 
     // =====================================================
-    // 10. 顶部算法状态
+    // 11. 时间轴自动跟随最新真实帧
     // =====================================================
+
+    int currentIndex = simulationRecorder_.size() - 1;
+
+    timeSlider_->blockSignals(true); // 先禁止滑块发信号。避免进入回放
+
+    timeSlider_->setMaximum(currentIndex);
+    timeSlider_->setValue(currentIndex);
+
+    timeSlider_->blockSignals(false);
+
+    timeLabel_->setText(
+        QString("%1 / %2")
+            .arg(currentIndex)
+            .arg(currentIndex));
+
+    // =====================================================
+    // 12. 更新界面数据
+    // =====================================================
+
+    if (speedValue_)
+    {
+        speedValue_->setText(
+            QString::number(speedKmH, 'f', 1) + " km/h");
+    }
+
+    if (distanceValue_)
+    {
+        distanceValue_->setText(
+            QString::number(totalDistance_, 'f', 1) + " m");
+    }
 
     if (algoValue_)
     {
@@ -389,41 +486,6 @@ void MainWindow::onVehicleDataUpdated(double x, double y, double yaw)
                 QString("横差 %1 m  转角 %2°")
                     .arg(currentLateralError, 0, 'f', 2)
                     .arg(steeringDegree, 0, 'f', 1));
-        }
-    }
-
-    // =====================================================
-    // 11. 里程与速度
-    // =====================================================
-
-    if (lastX_ != 0.0 || lastY_ != 0.0)
-    {
-        double dx = newState.x - lastX_;
-        double dy = newState.y - lastY_;
-
-        double distance =
-            std::sqrt(dx * dx + dy * dy);
-
-        totalDistance_ += distance;
-
-        double speed =
-            distance / simulationDt_;
-
-        double speedKmH =
-            speed * 3.6;
-
-        if (speedValue_)
-        {
-            speedValue_->setText(
-                QString::number(speedKmH, 'f', 1) +
-                " km/h");
-        }
-
-        if (distanceValue_)
-        {
-            distanceValue_->setText(
-                QString::number(totalDistance_, 'f', 1) +
-                " m");
         }
     }
 
@@ -852,4 +914,66 @@ double MainWindow::normalizeAngle(double angle) const
     }
 
     return angle;
+}
+
+void MainWindow::onReplayFrameSelected(int index)
+{
+    SimulationFrame frame;
+
+    // 根据下标 index，取出仿真录制的第 index 帧数据，存入传入的 frame 引用；下标非法就返回 false，成功取出返回 true。
+    if (!simulationRecorder_.frameAt(index, frame))
+    {
+        return;
+    }
+
+    // 拖时间轴时暂停实时仿真
+    QMetaObject::invokeMethod(
+        dataLoader_,
+        "pause",
+        Qt::QueuedConnection);
+
+    replayMode_ = true;
+
+    // 这里只显示历史状态，不改变VehicleModel真正的实时状态
+    view2D_->showReplayFrame(
+        frame.vehicle.x,
+        frame.vehicle.y,
+        frame.vehicle.yaw);
+
+    view2D_->updateTrackingDebug(
+        QPointF(frame.vehicle.x, frame.targetY),
+        frame.lateralError,
+        frame.steeringAngle);
+
+    if (speedValue_)
+    {
+        speedValue_->setText(
+            QString::number(frame.speedKmH, 'f', 1) + " km/h");
+    }
+
+    if (distanceValue_)
+    {
+        distanceValue_->setText(
+            QString::number(frame.totalDistance, 'f', 1) + " m");
+    }
+
+    if (algoValue_)
+    {
+        double steeringDegree =
+            frame.steeringAngle * 180.0 / M_PI;
+
+        double headingDegree =
+            frame.headingError * 180.0 / M_PI;
+
+        algoValue_->setText(
+            QString("回放 eY=%1m eYaw=%2° steer=%3°")
+                .arg(frame.lateralError, 0, 'f', 2)
+                .arg(headingDegree, 0, 'f', 1)
+                .arg(steeringDegree, 0, 'f', 1));
+    }
+
+    timeLabel_->setText(
+        QString("%1 / %2")
+            .arg(index)
+            .arg(simulationRecorder_.size() - 1));
 }
