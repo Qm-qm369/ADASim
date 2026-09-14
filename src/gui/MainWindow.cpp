@@ -1,9 +1,4 @@
 #include "MainWindow.h"
-#include "View2D.h"
-#include "backend/DataLoader.h"
-#include "backend/DataManager.h"
-#include "SensorView.h"
-#include "communication/Socket.h"
 
 #include <QThread>
 #include <QDebug>
@@ -11,7 +6,6 @@
 #include <QMetaObject>
 #include <QToolBar>
 #include <QStatusBar>
-#include <cmath>
 #include <QWidget>
 #include <QFrame>
 #include <QVBoxLayout>
@@ -256,6 +250,9 @@ void MainWindow::onStopSimulation()
         view2D_->updateVehiclePosition(0.0, 0.0, 0.0);
         view2D_->updatePlannedTrajectory(QVector<QPointF>());
     }
+
+    vehicleModel_.reset();
+    vehicleModelInitialized_ = false;
 }
 
 void MainWindow::onStatusUpdate(const QString &status)
@@ -263,41 +260,86 @@ void MainWindow::onStatusUpdate(const QString &status)
     statusBar()->showMessage(status);
 }
 
-// 每收到一帧车辆基础位置，就让车辆的 Y 方向逐渐靠近 Python 选中的 Lattice 横向目标，然后更新车辆显示，同时计算速度和累计里程。
 void MainWindow::onVehicleDataUpdated(double x, double y, double yaw)
 {
-    double trueYaw = yaw;
+    // 第一次收到DataLoader状态时，用它初始化车辆模型
+    if (!vehicleModelInitialized_)
+    {
+        vehicleModel_.setState(x, y, yaw);
+        vehicleModelInitialized_ = true;
+    }
+
+    VehicleState currentState = vehicleModel_.state();
+
+    // =====================================================
+    // 1. 根据参考轨迹计算目标航向
+    // =====================================================
+
+    double targetYaw = 0.0;
 
     if (lateralPlanActive_)
     {
-        currentLateralOffset_ = calculatePlannedOffset(x);
-        trueYaw = calculatePlannedYaw(x);
+        targetYaw = calculatePlannedYaw(currentState.x);
 
-        if (x >= planStartX_ + planningDistance_)
+        if (currentState.x >= planStartX_ + planningDistance_)
         {
-            currentLateralOffset_ = targetLateralOffset_;
             lateralPlanActive_ = false;
-            trueYaw = yaw;
+            targetYaw = 0.0;
         }
     }
 
-    double trueY = y + currentLateralOffset_;
+    // =====================================================
+    // 2. 当前航向和目标航向之间的误差
+    // =====================================================
 
-    // 现在位置和朝向都使用规划后的真实状态
-    view2D_->updateVehiclePosition(x, trueY, trueYaw);
+    double yawError = normalizeAngle(targetYaw - currentState.yaw);
 
-    // DataManager也收到真实位置和真实航向
-    emit trueVehiclePositionReady(x, trueY, trueYaw);
+    // =====================================================
+    // 3. 简单P控制器：误差 -> 转向角
+    // =====================================================
+
+    double steeringAngle = steeringKp_ * yawError;
+
+    // 限制最大转向角
+    if (steeringAngle > maxSteeringAngle_)
+    {
+        steeringAngle = maxSteeringAngle_;
+    }
+
+    if (steeringAngle < -maxSteeringAngle_)
+    {
+        steeringAngle = -maxSteeringAngle_;
+    }
+
+    // =====================================================
+    // 4. 车辆模型自己算下一帧X/Y/Yaw
+    // =====================================================
+
+    VehicleState newState = vehicleModel_.update(vehicleSpeed_, steeringAngle, simulationDt_);
+
+    // 当前真实横向位置
+    currentLateralOffset_ = newState.y;
+
+    // =====================================================
+    // 5. 把真实车辆状态交给显示和感知
+    // =====================================================
+
+    view2D_->updateVehiclePosition(newState.x, newState.y, newState.yaw);
+    emit trueVehiclePositionReady(newState.x, newState.y, newState.yaw);
+
+    // =====================================================
+    // 6. 计算真实里程和速度
+    // =====================================================
 
     if (lastX_ != 0.0 || lastY_ != 0.0)
     {
-        double dx = x - lastX_;
-        double dy = trueY - lastY_;
+        double dx = newState.x - lastX_;
+        double dy = newState.y - lastY_;
         double distance = std::sqrt(dx * dx + dy * dy);
 
         totalDistance_ += distance;
 
-        double speed = distance / 0.1;
+        double speed = distance / simulationDt_;
         double speedKmH = speed * 3.6;
 
         if (speedValue_)
@@ -311,8 +353,8 @@ void MainWindow::onVehicleDataUpdated(double x, double y, double yaw)
         }
     }
 
-    lastX_ = x;
-    lastY_ = trueY;
+    lastX_ = newState.x;
+    lastY_ = newState.y;
 }
 
 /**
@@ -719,4 +761,19 @@ void MainWindow::startLateralPlan(double targetOffset)
              << "targetOffset =" << targetLateralOffset_;
 
     rebuildPlannedTrajectory();
+}
+
+double MainWindow::normalizeAngle(double angle) const
+{
+    while (angle > M_PI)
+    {
+        angle -= 2.0 * M_PI;
+    }
+
+    while (angle < -M_PI)
+    {
+        angle += 2.0 * M_PI;
+    }
+
+    return angle;
 }

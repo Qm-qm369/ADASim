@@ -7,6 +7,17 @@
 #include <QSlider>
 #include <QVector>
 #include <QPointF>
+#include <cmath>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+#include "algorithm/VehicleModel.h"
+#include "View2D.h"
+#include "backend/DataLoader.h"
+#include "backend/DataManager.h"
+#include "SensorView.h"
+#include "communication/Socket.h"
 
 class QLayout;
 class View2D;
@@ -86,6 +97,7 @@ private slots:
     void startLateralPlan(double targetOffset);    // 创建一轮新的横向规划
     double calculatePlannedOffset(double x) const; // 根据当前X计算车辆现在应该处于什么横向位置
     double calculatePlannedYaw(double x) const;    // 计算转向角
+    double normalizeAngle(double angle) const;     // 角度归一化 把角度误差限制在： -180° ~ +180°
     void rebuildPlannedTrajectory();               // 提前生成一些轨迹点供View2D显示
 
 private:
@@ -132,6 +144,24 @@ private:
     bool lateralPlanActive_ = false; // 当前有没有正在执行的横向轨迹
 
     QVector<QPointF> plannedTrajectory_; // 真正准备执行并显示的轨迹点
+
+    // V1.4 简化车辆运动模型
+    VehicleModel vehicleModel_;
+
+    // 车辆模型是否已经获得初始位置
+    bool vehicleModelInitialized_ = false;
+
+    // 固定车速：5m/s = 18km/h
+    double vehicleSpeed_ = 5.0;
+
+    // DataLoader当前100ms一帧
+    double simulationDt_ = 0.1;
+
+    // 航向角P控制增益 ⭐️
+    double steeringKp_ = 1.5;
+
+    // 最大前轮转角约25度
+    double maxSteeringAngle_ = 25.0 * M_PI / 180.0; // double maxSteeringAngle_ = 0.436332;
 };
 
 #endif

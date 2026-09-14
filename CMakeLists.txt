@@ -30,6 +30,7 @@ set(PROJECT_SOURCES
     src/algorithm/ObstacleDetector.cpp
     src/algorithm/PathPredictor.cpp
     src/communication/Socket.cpp
+    src/algorithm/VehicleModel.cpp
 )
 
 # 创建可执行文件
