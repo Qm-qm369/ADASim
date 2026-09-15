@@ -22,21 +22,27 @@ find_package(OpenCV REQUIRED)
 # ============================================================================
 set(PROJECT_SOURCES
     src/main.cpp
+
     src/gui/MainWindow.cpp
     src/gui/View2D.cpp
+    src/gui/SensorView.cpp
+    src/gui/ControlMonitor.cpp
+
     src/backend/DataLoader.cpp
     src/backend/DataManager.cpp
-    src/gui/SensorView.cpp
+    src/backend/SimulationRecorder.cpp
+
     src/algorithm/ObstacleDetector.cpp
     src/algorithm/PathPredictor.cpp
-    src/communication/Socket.cpp
     src/algorithm/VehicleModel.cpp
     src/algorithm/TrajectoryController.cpp
-    src/backend/SimulationRecorder.cpp
     src/algorithm/PurePursuitController.cpp
-src/gui/ControlMonitor.cpp
-)
+    src/algorithm/LongitudinalController.cpp
 
+    src/communication/Socket.cpp
+
+    src/system/LinuxLogger.cpp
+)
 # 创建可执行文件
 add_executable(${PROJECT_NAME}
     ${PROJECT_SOURCES}

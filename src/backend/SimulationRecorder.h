@@ -21,6 +21,16 @@ struct SimulationFrame
     double totalDistance = 0.0;
 
     int controllerMode = 0;
+
+    // V1.8纵向控制
+    double targetSpeedKmH = 0.0;
+    double acceleration = 0.0;
+
+    double frontObstacleDistance = -1.0;
+
+    double ttc = -1.0;
+
+    bool emergencyBrake = false;
 };
 
 class SimulationRecorder

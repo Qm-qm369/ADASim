@@ -35,7 +35,7 @@ double PurePursuitController::computeSteering(
     }
 
     // 根据目标点位置计算需要的轨迹⭐️曲率 这条圆弧应该弯多厉害
-    // 曲率计算公式 k = 2y/(L*L)
+    // 曲率计算公式 k = 2y/L^2
     double curvature =
         2.0 * localY /
         (lookAheadDistance * lookAheadDistance);

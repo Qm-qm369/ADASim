@@ -145,6 +145,46 @@ void DataManager::onPointCloudReceived(
             mergedPoints);
 
     // =====================================
+    // V1.8：寻找当前正前方最近障碍物
+    // 从感知算法检测出来的一堆障碍物里面，筛选出真正影响车辆直行的那个最近障碍物，然后把距离发送给纵向控制器，让 LongitudinalController 判断是否减速、刹车。
+    // =====================================
+
+    double nearestFrontDistance = -1.0;
+
+    // 学习版：车辆中心左右1.5m认为属于正前方走廊
+    const double frontCorridorHalfWidth = 1.5;
+
+    for (const Obstacle &obstacle : obstacles)
+    {
+        double localX = obstacle.position.x();
+
+        double localY = obstacle.position.y();
+
+        // 障碍物已经在车辆后方
+        if (localX <= 0.0)
+        {
+            continue;
+        }
+
+        // 障碍物在车辆侧面，不作为纵向停车目标
+        if (std::abs(localY) >
+            frontCorridorHalfWidth)
+        {
+            continue;
+        }
+
+        // 找正前方最近的一个
+        if (nearestFrontDistance < 0.0 ||
+            localX < nearestFrontDistance)
+        {
+            nearestFrontDistance =
+                localX;
+        }
+    }
+
+    emit frontObstacleDistanceUpdated(nearestFrontDistance);
+
+    // =====================================
     // V0.10
     // 把检测结果发送给Python Planner
     // 把 C++ 感知算法检测出来的 Obstacle 障碍物，整理成 JSON 数据，再通过 plannerDataReady 信号交出去，准备发送给 Python Planner。

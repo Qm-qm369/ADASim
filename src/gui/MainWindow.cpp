@@ -16,6 +16,10 @@ MainWindow::MainWindow(const QString &configPath,
                        QWidget *parent)
     : QMainWindow(parent), configPath_(configPath), dataPath_(dataPath)
 {
+    LinuxLogger::init();
+
+    LinuxLogger::info("ADASim application started");
+
     setWindowTitle("ADASim - 自动驾驶算法仿真平台 v0.2");
     resize(1600, 900);
 
@@ -43,6 +47,10 @@ MainWindow::~MainWindow()
     }
 
     stopBackend();
+
+    LinuxLogger::info("ADASim application stopped");
+
+    LinuxLogger::shutdown();
 }
 
 void MainWindow::startBackend()
@@ -169,7 +177,7 @@ void MainWindow::setupConnections()
 
     connect(speedSpin_, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
             this, [this](double value)
-            { vehicleSpeed_ = value; });
+            { targetVehicleSpeed_ = value; }); // 如果安全，我希望车达到5m/s。
 
     connect(lookAheadSpin_, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
             this, [this](double value)
@@ -186,6 +194,9 @@ void MainWindow::setupConnections()
             { trajectoryController_.setGains(
                   headingGainSpin_->value(),
                   lateralGainSpin_->value()); });
+
+    connect(dataManager_, &DataManager::frontObstacleDistanceUpdated,
+            this, &MainWindow::onFrontObstacleDistanceUpdated);
 }
 
 void MainWindow::onStartSimulation()
@@ -207,6 +218,8 @@ void MainWindow::onStartSimulation()
             state.y,
             state.yaw);
     }
+
+    LinuxLogger::info(QString("Simulation started, target speed=%1 m/s").arg(targetVehicleSpeed_, 0, 'f', 1));
 
     QMetaObject::invokeMethod(
         dataLoader_,
@@ -232,6 +245,10 @@ void MainWindow::onStopSimulation()
 
     targetLateralOffset_ = 0.0;
     currentLateralOffset_ = 0.0;
+
+    currentVehicleSpeed_ = 0.0;
+    frontObstacleDistance_ = -1.0;
+    emergencyBrakeActive_ = false;
 
     planStartX_ = 0.0;
     planStartOffset_ = 0.0;
@@ -281,6 +298,8 @@ void MainWindow::onStopSimulation()
     {
         controlMonitor_->clear();
     }
+
+    LinuxLogger::info("Simulation stopped");
 }
 
 void MainWindow::onStatusUpdate(const QString &status)
@@ -340,7 +359,51 @@ void MainWindow::onSimulationTick(const QVector<QPointF> &points)
     }
 
     // =====================================================
-    // 4. 双误差控制器计算前轮转角
+    // 4. V1.8：纵向速度控制
+    // =====================================================
+
+    LongitudinalControlOutput longitudinalControl =
+        longitudinalController_.compute(
+            targetVehicleSpeed_,
+            currentVehicleSpeed_,
+            frontObstacleDistance_);
+
+    // ================================
+    // 这里添加 Linux日志
+    // ================================
+
+    if (longitudinalControl.emergencyBrake &&
+        !emergencyBrakeActive_)
+    {
+        LinuxLogger::warning(
+            QString(
+                "Emergency brake triggered, distance=%1 m, TTC=%2 s")
+                .arg(frontObstacleDistance_, 0, 'f', 1)
+                .arg(longitudinalControl.ttc, 0, 'f', 2));
+    }
+
+    if (!longitudinalControl.emergencyBrake &&
+        emergencyBrakeActive_)
+    {
+        LinuxLogger::info(
+            "Emergency brake released");
+    }
+
+    emergencyBrakeActive_ =
+        longitudinalControl.emergencyBrake;
+
+    // v = v0 + a * dt
+    currentVehicleSpeed_ +=
+        longitudinalControl.acceleration *
+        simulationDt_;
+
+    if (currentVehicleSpeed_ < 0.0)
+    {
+        currentVehicleSpeed_ = 0.0;
+    }
+
+    // =====================================================
+    // 4. 双误差控制器计算前轮转角 横向控制器
     // =====================================================
 
     ControlOutput control;
@@ -351,7 +414,7 @@ void MainWindow::onSimulationTick(const QVector<QPointF> &points)
             currentState,
             targetY,
             targetYaw,
-            vehicleSpeed_);
+            currentVehicleSpeed_);
     }
     else
     {
@@ -379,7 +442,7 @@ void MainWindow::onSimulationTick(const QVector<QPointF> &points)
     // =====================================================
 
     VehicleState newState = vehicleModel_.update(
-        vehicleSpeed_,
+        currentVehicleSpeed_,
         control.steeringAngle,
         simulationDt_);
 
@@ -417,8 +480,7 @@ void MainWindow::onSimulationTick(const QVector<QPointF> &points)
 
     totalDistance_ += distance;
 
-    double speed = distance / simulationDt_;
-    double speedKmH = speed * 3.6;
+    double speedKmH = currentVehicleSpeed_ * 3.6;
 
     // =====================================================
     // 8. 显示真实车辆状态
@@ -479,6 +541,16 @@ void MainWindow::onSimulationTick(const QVector<QPointF> &points)
 
     frame.speedKmH = speedKmH;
     frame.totalDistance = totalDistance_;
+
+    frame.targetSpeedKmH = longitudinalControl.safeTargetSpeed * 3.6;
+
+    frame.acceleration = longitudinalControl.acceleration;
+
+    frame.frontObstacleDistance = frontObstacleDistance_;
+
+    frame.ttc = longitudinalControl.ttc;
+
+    frame.emergencyBrake = longitudinalControl.emergencyBrake;
 
     // V1.7：记录这一帧使用的是哪个控制器
     frame.controllerMode =
@@ -1161,4 +1233,10 @@ void MainWindow::onReplayFrameSelected(int index)
         QString("%1 / %2")
             .arg(index)
             .arg(simulationRecorder_.size() - 1));
+}
+
+void MainWindow::onFrontObstacleDistanceUpdated(
+    double distance)
+{
+    frontObstacleDistance_ = distance;
 }

@@ -21,6 +21,8 @@
 #include "backend/SimulationRecorder.h"
 #include "algorithm/PurePursuitController.h"
 #include "ControlMonitor.h"
+#include "algorithm/LongitudinalController.h"
+#include "system/LinuxLogger.h"
 
 class QLayout;
 class View2D;
@@ -113,6 +115,8 @@ private slots:
     void onSimulationTick(const QVector<QPointF> &points);
     void onReplayFrameSelected(int index);
 
+    void onFrontObstacleDistanceUpdated(double distance);
+
 private:
     // 行车记录仪时间轴
     QSlider *timeSlider_ = nullptr;
@@ -169,8 +173,21 @@ private:
     // 车辆模型是否已经获得初始位置
     bool vehicleModelInitialized_ = false;
 
-    // 固定车速：5m/s = 18km/h
-    double vehicleSpeed_ = 5.0;
+    // 用户希望达到的速度
+    double targetVehicleSpeed_ = 5.0;
+
+    // 车辆当前实际速度
+    double currentVehicleSpeed_ = 0.0;
+
+    // 当前最近前障距离
+    // -1 = 当前无前障
+    double frontObstacleDistance_ = -1.0;
+
+    // 纵向控制器
+    LongitudinalController longitudinalController_;
+
+    // 防止紧急制动日志每100ms刷一次
+    bool emergencyBrakeActive_ = false;
 
     // DataLoader当前100ms一帧
     double simulationDt_ = 0.1;

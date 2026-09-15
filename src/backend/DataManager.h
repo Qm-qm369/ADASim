@@ -38,6 +38,11 @@ signals:
     void mergedPointCloudReady(
         const QVector<QPointF> &points);
 
+    // V1.8：当前正前方最近障碍物距离
+    // -1 表示当前没有前方障碍物
+    void frontObstacleDistanceUpdated(
+        double distance);
+
     // 给 UI 和算法发送最新车辆状态
     void vehicleStateUpdated(
         double x,
