@@ -2,7 +2,12 @@
 
 #include <QPainter>
 #include <QPainterPath>
+#include <algorithm>
 #include <cmath>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 ControlMonitor::ControlMonitor(QWidget *parent) // 本身是一个 Qt 控件
     : QWidget(parent)
@@ -39,10 +44,11 @@ void ControlMonitor::clear()
 
 /*
 真正“把一组数字画成曲线”的函数
-painter→ 用谁画
-values→ 要画的一组数据
-rect→ 在屏幕哪个矩形区域画
-range→ Y轴允许显示的范围
+
+painter → 用谁画
+values → 要画的一组数据
+rect → 在屏幕哪个矩形区域画
+range → Y轴允许显示的范围
 */
 void ControlMonitor::drawSeries(
     QPainter &painter,

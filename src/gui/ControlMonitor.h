@@ -1,12 +1,12 @@
-// 控制曲线监控
-
 #ifndef CONTROLMONITOR_H
 #define CONTROLMONITOR_H
 
 #include <QWidget>
 #include <QVector>
+#include <QRectF>
 
 class QPainter;
+class QPaintEvent;
 
 class ControlMonitor : public QWidget
 {

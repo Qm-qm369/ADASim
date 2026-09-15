@@ -175,18 +175,17 @@ void MainWindow::setupConnections()
             this, [this](double value)
             { lookAheadDistance_ = value; });
 
-    auto updateControllerGains = [this]()
-    {
-        trajectoryController_.setGains(
-            headingGainSpin_->value(),
-            lateralGainSpin_->value());
-    };
-
     connect(headingGainSpin_, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
-            this, updateControllerGains);
+            this, [this](double)
+            { trajectoryController_.setGains(
+                  headingGainSpin_->value(),
+                  lateralGainSpin_->value()); });
 
     connect(lateralGainSpin_, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
-            this, updateControllerGains);
+            this, [this](double)
+            { trajectoryController_.setGains(
+                  headingGainSpin_->value(),
+                  lateralGainSpin_->value()); });
 }
 
 void MainWindow::onStartSimulation()
@@ -610,86 +609,123 @@ void MainWindow::setupUI()
     // =========================
 
     QFrame *controlPanel = new QFrame(this);
-
-    controlPanel->setFixedHeight(70);
+    controlPanel->setObjectName("controlPanel");
+    controlPanel->setFixedHeight(110);
 
     controlPanel->setStyleSheet(
-        "QFrame {"
-        "background-color: #111827;"
-        "border: 1px solid #2d3748;"
-        "border-radius: 6px;"
+        "QFrame#controlPanel {"
+        "    background-color: #0f172a;"
+        "    border: 1px solid #243041;"
+        "    border-radius: 10px;"
+        "}"
+        "QWidget#paramCard {"
+        "    background-color: #111827;"
+        "    border: 1px solid #2d3748;"
+        "    border-radius: 8px;"
+        "}"
+        "QLabel#paramTitle {"
+        "    color: #94a3b8;"
+        "    font-size: 13px;"
+        "    font-weight: 600;"
+        "    border: none;"
+        "    background: transparent;"
+        "}"
+        "QComboBox, QDoubleSpinBox {"
+        "    background-color: #0b1220;"
+        "    color: #f8fafc;"
+        "    border: 1px solid #3b475a;"
+        "    border-radius: 6px;"
+        "    padding: 6px 10px;"
+        "    min-height: 32px;"
+        "    font-size: 14px;"
+        "}"
+        "QComboBox::drop-down {"
+        "    border: none;"
+        "    width: 24px;"
+        "}"
+        "QComboBox::down-arrow {"
+        "    image: none;"
+        "    width: 0px;"
+        "    height: 0px;"
+        "}"
+        "QComboBox QAbstractItemView {"
+        "    background-color: #0b1220;"
+        "    color: #f8fafc;"
+        "    border: 1px solid #3b475a;"
+        "    selection-background-color: #1d4ed8;"
+        "    selection-color: #ffffff;"
+        "    outline: 0;"
+        "    padding: 4px;"
+        "}"
+        "QComboBox QAbstractItemView::item {"
+        "    min-height: 28px;"
+        "    padding: 6px 10px;"
+        "}"
+        "QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {"
+        "    width: 18px;"
         "}");
 
-    QHBoxLayout *controlLayout =
-        new QHBoxLayout(controlPanel);
+    QHBoxLayout *controlLayout = new QHBoxLayout(controlPanel);
+    controlLayout->setContentsMargins(12, 10, 12, 10);
+    controlLayout->setSpacing(12);
 
-    // 控制器
-    controlLayout->addWidget(
-        new QLabel("控制器：", controlPanel));
+    // 创建单个参数卡片的小工具函数
+    auto createParamCard = [&](const QString &title, QWidget *editor) -> QWidget *
+    {
+        QFrame *card = new QFrame(controlPanel);
+        card->setObjectName("paramCard");
+        card->setMinimumWidth(180);
 
-    controllerCombo_ =
-        new QComboBox(controlPanel);
+        QVBoxLayout *cardLayout = new QVBoxLayout(card);
+        cardLayout->setContentsMargins(12, 8, 12, 8);
+        cardLayout->setSpacing(6);
 
+        QLabel *titleLabel = new QLabel(title, card);
+        titleLabel->setObjectName("paramTitle");
+
+        editor->setParent(card);
+
+        cardLayout->addWidget(titleLabel);
+        cardLayout->addWidget(editor);
+
+        return card;
+    };
+
+    // ===== 创建控件 =====
+    controllerCombo_ = new QComboBox();
     controllerCombo_->addItem("双误差控制");
     controllerCombo_->addItem("Pure Pursuit");
 
-    controlLayout->addWidget(controllerCombo_);
-
-    // 速度
-    controlLayout->addWidget(
-        new QLabel("速度：", controlPanel));
-
-    speedSpin_ =
-        new QDoubleSpinBox(controlPanel);
-
+    speedSpin_ = new QDoubleSpinBox();
     speedSpin_->setRange(1.0, 15.0);
-    speedSpin_->setSingleStep(0.5); // 点击上下箭头时，每次增减 0.5
-    speedSpin_->setValue(5.0);      // 给输入框设置初始默认值 = 5.0
-    speedSpin_->setSuffix(" m/s");  // 后缀文字：在数字后面自动追加一段文字，仅用于显示，不参与数值读取
+    speedSpin_->setSingleStep(0.5);
+    speedSpin_->setValue(5.0);
+    speedSpin_->setSuffix(" m/s");
 
-    controlLayout->addWidget(speedSpin_);
-
-    // 前视距离
-    controlLayout->addWidget(
-        new QLabel("前视：", controlPanel));
-
-    lookAheadSpin_ =
-        new QDoubleSpinBox(controlPanel);
-
+    lookAheadSpin_ = new QDoubleSpinBox();
     lookAheadSpin_->setRange(1.0, 10.0);
     lookAheadSpin_->setSingleStep(0.5);
     lookAheadSpin_->setValue(2.0);
     lookAheadSpin_->setSuffix(" m");
 
-    controlLayout->addWidget(lookAheadSpin_);
-
-    // 双误差控制参数
-    controlLayout->addWidget(
-        new QLabel("航向K：", controlPanel));
-
-    headingGainSpin_ =
-        new QDoubleSpinBox(controlPanel);
-
+    headingGainSpin_ = new QDoubleSpinBox();
     headingGainSpin_->setRange(0.0, 5.0);
     headingGainSpin_->setSingleStep(0.1);
     headingGainSpin_->setValue(1.0);
 
-    controlLayout->addWidget(headingGainSpin_);
-
-    controlLayout->addWidget(
-        new QLabel("横向K：", controlPanel));
-
-    lateralGainSpin_ =
-        new QDoubleSpinBox(controlPanel);
-
+    lateralGainSpin_ = new QDoubleSpinBox();
     lateralGainSpin_->setRange(0.0, 5.0);
     lateralGainSpin_->setSingleStep(0.1);
     lateralGainSpin_->setValue(1.5);
 
-    controlLayout->addWidget(lateralGainSpin_);
+    // ===== 放入面板 =====
+    controlLayout->addWidget(createParamCard("控制器", controllerCombo_), 1);
+    controlLayout->addWidget(createParamCard("速度", speedSpin_), 1);
+    controlLayout->addWidget(createParamCard("前视距离", lookAheadSpin_), 1);
+    controlLayout->addWidget(createParamCard("航向增益", headingGainSpin_), 1);
+    controlLayout->addWidget(createParamCard("横向增益", lateralGainSpin_), 1);
 
     mainLayout->addWidget(controlPanel);
-
     // =========================
     // 2. 中间 2D 仿真区域
     // =========================

@@ -45,6 +45,9 @@ public slots:
 
     void clearTrackingDebug();
 
+    // 只是把屏幕切到历史帧看看不记录新轨迹
+    void showReplayFrame(double x, double y, double yaw);
+
 signals:
     void userObstacleAdded(
         double worldX,
@@ -74,8 +77,6 @@ private:
     void drawPlanning(QPainter &painter);
 
     void drawTrackingDebug(QPainter &painter);
-
-    void showReplayFrame(double x, double y, double yaw);
 
 private:
     // PathPredictor预测出的未来世界坐标
