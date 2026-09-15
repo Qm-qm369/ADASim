@@ -25,6 +25,7 @@ public:
     TrajectoryController();
 
     ControlOutput compute(const VehicleState &state, double targetY, double targetYaw, double speed) const;
+    void setGains(double headingGain, double lateralGain);
 
 private:
     double normalizeAngle(double angle) const;

@@ -120,32 +120,6 @@ void MainWindow::setupConnections()
     // DataLoader -> 状态栏
     connect(dataLoader_, &DataLoader::statusUpdate, this, &MainWindow::onStatusUpdate);
 
-    connect(dataLoader_, &DataLoader::totalFramesLoaded,
-            this, [this](int total)
-            {
-                int maxFrame = (total > 0) ? total - 1 : 0;
-                // FIFO最多100帧，所以最大索引99
-                if (maxFrame > 99)
-                    maxFrame = 99;
-                timeSlider_->setMaximum(maxFrame); });
-
-    connect(dataLoader_, &DataLoader::currentFrameUpdated,
-            this, [this](int current)
-            {
-            /*
-             * 程序主动移动滑块时，
-             * 不允许触发 valueChanged，
-             * 否则会反过来调用 seekToFrame。 
-             * blockSignals() 是 Qt 的 QObject 自带函数 临时阻止一个 Qt 对象发出信号。
-             */
-            timeSlider_->blockSignals(true);
-
-            timeSlider_->setValue(current);
-
-            timeSlider_->blockSignals(false);
-
-            timeLabel_->setText(QString("%1 / %2").arg(current). arg(timeSlider_->maximum())); });
-
     connect(timeSlider_, &QSlider::valueChanged, this, &MainWindow::onReplayFrameSelected);
 
     // 最终点云给SensorView
@@ -179,6 +153,40 @@ void MainWindow::setupConnections()
 
     connect(dataManager_, &DataManager::pathPredicted,
             view2D_, &View2D::updatePredictedPath);
+
+    // 下拉框 `controllerCombo_` 选中项发生变化时，触发 lambda 函数，修改成员变量 `controllerMode_`，切换控制器模式
+    connect(controllerCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int index)
+            {
+            if (index == 0)
+            {
+                controllerMode_ =ControllerMode::DualError;
+            }
+            else
+            {
+                controllerMode_ =ControllerMode::PurePursuit;
+            } });
+
+    connect(speedSpin_, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, [this](double value)
+            { vehicleSpeed_ = value; });
+
+    connect(lookAheadSpin_, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, [this](double value)
+            { lookAheadDistance_ = value; });
+
+    auto updateControllerGains = [this]()
+    {
+        trajectoryController_.setGains(
+            headingGainSpin_->value(),
+            lateralGainSpin_->value());
+    };
+
+    connect(headingGainSpin_, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, updateControllerGains);
+
+    connect(lateralGainSpin_, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, updateControllerGains);
 }
 
 void MainWindow::onStartSimulation()
@@ -269,6 +277,11 @@ void MainWindow::onStopSimulation()
         view2D_->updatePlannedTrajectory(QVector<QPointF>());
         view2D_->clearTrackingDebug();
     }
+
+    if (controlMonitor_)
+    {
+        controlMonitor_->clear();
+    }
 }
 
 void MainWindow::onStatusUpdate(const QString &status)
@@ -331,11 +344,36 @@ void MainWindow::onSimulationTick(const QVector<QPointF> &points)
     // 4. 双误差控制器计算前轮转角
     // =====================================================
 
-    ControlOutput control = trajectoryController_.compute(
-        currentState,
-        targetY,
-        targetYaw,
-        vehicleSpeed_);
+    ControlOutput control;
+
+    if (controllerMode_ == ControllerMode::DualError)
+    {
+        control = trajectoryController_.compute(
+            currentState,
+            targetY,
+            targetYaw,
+            vehicleSpeed_);
+    }
+    else
+    {
+        double pursuitX = currentState.x + lookAheadDistance_;
+
+        double pursuitY = calculatePlannedOffset(pursuitX);
+
+        QPointF pursuitTarget(pursuitX, pursuitY);
+
+        control.steeringAngle = purePursuitController_.computeSteering(
+            currentState,
+            pursuitTarget);
+
+        control.lateralError = targetY - currentState.y;
+
+        double pursuitYaw = std::atan2(
+            pursuitY - currentState.y,
+            pursuitX - currentState.x);
+
+        control.headingError = normalizeAngle(pursuitYaw - currentState.yaw);
+    }
 
     // =====================================================
     // 5. VehicleModel执行这一帧运动
@@ -354,6 +392,14 @@ void MainWindow::onSimulationTick(const QVector<QPointF> &points)
 
     double newTargetY = calculatePlannedOffset(newState.x);
     double currentLateralError = newTargetY - newState.y;
+
+    // V1.7：把这一帧控制数据送给控制曲线监控器
+    if (controlMonitor_)
+    {
+        controlMonitor_->appendSample(
+            currentLateralError,
+            control.steeringAngle);
+    }
 
     // 判断车辆是不是真的稳定了
     bool targetSettled =
@@ -427,11 +473,19 @@ void MainWindow::onSimulationTick(const QVector<QPointF> &points)
     frame.vehicle = newState;
     frame.targetY = newTargetY;
     frame.targetYaw = targetYaw;
+
     frame.lateralError = currentLateralError;
     frame.headingError = control.headingError;
     frame.steeringAngle = control.steeringAngle;
+
     frame.speedKmH = speedKmH;
     frame.totalDistance = totalDistance_;
+
+    // V1.7：记录这一帧使用的是哪个控制器
+    frame.controllerMode =
+        controllerMode_ == ControllerMode::DualError
+            ? 0
+            : 1;
 
     simulationRecorder_.append(frame);
 
@@ -482,8 +536,12 @@ void MainWindow::onSimulationTick(const QVector<QPointF> &points)
         }
         else
         {
+            QString controllerName =
+                controllerMode_ == ControllerMode::DualError ? "双误差" : "PurePursuit";
+
             algoValue_->setText(
-                QString("横差 %1 m  转角 %2°")
+                QString("%1  eY=%2m  steer=%3°")
+                    .arg(controllerName)
                     .arg(currentLateralError, 0, 'f', 2)
                     .arg(steeringDegree, 0, 'f', 1));
         }
@@ -548,6 +606,91 @@ void MainWindow::setupUI()
     mainLayout->addWidget(infoPanel);
 
     // =========================
+    // 1.5. 控制面板
+    // =========================
+
+    QFrame *controlPanel = new QFrame(this);
+
+    controlPanel->setFixedHeight(70);
+
+    controlPanel->setStyleSheet(
+        "QFrame {"
+        "background-color: #111827;"
+        "border: 1px solid #2d3748;"
+        "border-radius: 6px;"
+        "}");
+
+    QHBoxLayout *controlLayout =
+        new QHBoxLayout(controlPanel);
+
+    // 控制器
+    controlLayout->addWidget(
+        new QLabel("控制器：", controlPanel));
+
+    controllerCombo_ =
+        new QComboBox(controlPanel);
+
+    controllerCombo_->addItem("双误差控制");
+    controllerCombo_->addItem("Pure Pursuit");
+
+    controlLayout->addWidget(controllerCombo_);
+
+    // 速度
+    controlLayout->addWidget(
+        new QLabel("速度：", controlPanel));
+
+    speedSpin_ =
+        new QDoubleSpinBox(controlPanel);
+
+    speedSpin_->setRange(1.0, 15.0);
+    speedSpin_->setSingleStep(0.5); // 点击上下箭头时，每次增减 0.5
+    speedSpin_->setValue(5.0);      // 给输入框设置初始默认值 = 5.0
+    speedSpin_->setSuffix(" m/s");  // 后缀文字：在数字后面自动追加一段文字，仅用于显示，不参与数值读取
+
+    controlLayout->addWidget(speedSpin_);
+
+    // 前视距离
+    controlLayout->addWidget(
+        new QLabel("前视：", controlPanel));
+
+    lookAheadSpin_ =
+        new QDoubleSpinBox(controlPanel);
+
+    lookAheadSpin_->setRange(1.0, 10.0);
+    lookAheadSpin_->setSingleStep(0.5);
+    lookAheadSpin_->setValue(2.0);
+    lookAheadSpin_->setSuffix(" m");
+
+    controlLayout->addWidget(lookAheadSpin_);
+
+    // 双误差控制参数
+    controlLayout->addWidget(
+        new QLabel("航向K：", controlPanel));
+
+    headingGainSpin_ =
+        new QDoubleSpinBox(controlPanel);
+
+    headingGainSpin_->setRange(0.0, 5.0);
+    headingGainSpin_->setSingleStep(0.1);
+    headingGainSpin_->setValue(1.0);
+
+    controlLayout->addWidget(headingGainSpin_);
+
+    controlLayout->addWidget(
+        new QLabel("横向K：", controlPanel));
+
+    lateralGainSpin_ =
+        new QDoubleSpinBox(controlPanel);
+
+    lateralGainSpin_->setRange(0.0, 5.0);
+    lateralGainSpin_->setSingleStep(0.1);
+    lateralGainSpin_->setValue(1.5);
+
+    controlLayout->addWidget(lateralGainSpin_);
+
+    mainLayout->addWidget(controlPanel);
+
+    // =========================
     // 2. 中间 2D 仿真区域
     // =========================
 
@@ -558,11 +701,17 @@ void MainWindow::setupUI()
 
     sensorView_ = new SensorView(this);
 
-    // 左边主视图更大
+    controlMonitor_ = new ControlMonitor(this);
+
+    QVBoxLayout *rightLayout = new QVBoxLayout();
+
+    rightLayout->addWidget(sensorView_, 2);
+
+    rightLayout->addWidget(controlMonitor_, 1);
+
     viewsLayout->addWidget(view2D_, 2);
 
-    // 右边雷达视图
-    viewsLayout->addWidget(sensorView_, 1);
+    viewsLayout->addLayout(rightLayout, 1);
 
     mainLayout->addLayout(viewsLayout, 1);
 

@@ -33,6 +33,8 @@ set(PROJECT_SOURCES
     src/algorithm/VehicleModel.cpp
     src/algorithm/TrajectoryController.cpp
     src/backend/SimulationRecorder.cpp
+    src/algorithm/PurePursuitController.cpp
+src/gui/ControlMonitor.cpp
 )
 
 # 创建可执行文件

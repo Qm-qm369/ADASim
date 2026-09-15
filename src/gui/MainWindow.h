@@ -8,6 +8,8 @@
 #include <QVector>
 #include <QPointF>
 #include <cmath>
+#include <QComboBox>
+#include <QDoubleSpinBox>
 
 #include "algorithm/VehicleModel.h"
 #include "View2D.h"
@@ -17,6 +19,8 @@
 #include "communication/Socket.h"
 #include "algorithm/TrajectoryController.h"
 #include "backend/SimulationRecorder.h"
+#include "algorithm/PurePursuitController.h"
+#include "ControlMonitor.h"
 
 class QLayout;
 class View2D;
@@ -26,6 +30,12 @@ class QCloseEvent;
 class DataManager;
 class SensorView;
 class SocketServer;
+
+enum class ControllerMode
+{
+    DualError,
+    PurePursuit
+};
 
 class MainWindow : public QMainWindow
 {
@@ -124,6 +134,8 @@ private:
 
     SensorView *sensorView_ = nullptr;
 
+    ControlMonitor *controlMonitor_ = nullptr;
+
     double totalDistance_ = 0.0;
 
     double lastX_ = 0.0;
@@ -151,8 +163,6 @@ private:
     // V1.4 简化车辆运动模型
     VehicleModel vehicleModel_;
 
-    TrajectoryController trajectoryController_;
-
     // 提前看前方2米的轨迹方向
     double lookAheadDistance_ = 2.0;
 
@@ -168,6 +178,20 @@ private:
     SimulationRecorder simulationRecorder_;
 
     bool replayMode_ = false;
+
+    TrajectoryController trajectoryController_;
+    PurePursuitController purePursuitController_;
+
+    ControllerMode controllerMode_ =
+        ControllerMode::DualError;
+
+    QComboBox *controllerCombo_ = nullptr; // 控制器 QComboBox 下拉选择框
+
+    QDoubleSpinBox *speedSpin_ = nullptr;     // 车辆速度 QDoubleSpinBox 浮点数输入框
+    QDoubleSpinBox *lookAheadSpin_ = nullptr; // 前视距离
+
+    QDoubleSpinBox *headingGainSpin_ = nullptr; // 航向误差权重
+    QDoubleSpinBox *lateralGainSpin_ = nullptr; // 横向误差权重
 };
 
 #endif

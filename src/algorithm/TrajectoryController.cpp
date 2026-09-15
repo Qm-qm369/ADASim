@@ -59,3 +59,11 @@ ControlOutput TrajectoryController::compute(const VehicleState &state, double ta
 
     return output;
 }
+
+void TrajectoryController::setGains(
+    double headingGain,
+    double lateralGain)
+{
+    kHeading_ = headingGain;
+    kLateral_ = lateralGain;
+}

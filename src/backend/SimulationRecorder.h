@@ -19,6 +19,8 @@ struct SimulationFrame
 
     double speedKmH = 0.0;
     double totalDistance = 0.0;
+
+    int controllerMode = 0;
 };
 
 class SimulationRecorder

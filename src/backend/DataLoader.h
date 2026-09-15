@@ -22,11 +22,9 @@ public:
 
 signals:
 
-    // 当前帧 LiDAR 点云
-    void pointCloudReady(const QVector<QPointF> &points);
-
     // 向界面发送运行状态
     void statusUpdate(const QString &status);
+
     // V1.6：每100ms通知主控制流程执行一帧
     void simulationTick(const QVector<QPointF> &points);
 
