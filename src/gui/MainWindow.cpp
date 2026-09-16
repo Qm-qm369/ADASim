@@ -23,8 +23,11 @@ MainWindow::MainWindow(const QString &configPath,
     setWindowTitle("ADASim - 自动驾驶算法仿真平台 v0.2");
     resize(1600, 900);
 
-    setStyleSheet(
-        "QMainWindow { background-color: #050811; }");
+    setStyleSheet("QMainWindow { background-color: #050811; }");
+
+    // V1.9
+    loadConfig();
+    applyConfig();
 
     setupUI();
     setupToolBar();
@@ -51,6 +54,46 @@ MainWindow::~MainWindow()
     LinuxLogger::info("ADASim application stopped");
 
     LinuxLogger::shutdown();
+}
+
+void MainWindow::loadConfig()
+{
+    QString errorMessage;
+
+    bool success = ConfigManager::load(configPath_, appConfig_, errorMessage);
+
+    if (success)
+    {
+        LinuxLogger::info(QString("Config loaded: %1").arg(configPath_));
+    }
+    else
+    {
+        // 配置加载失败仍然继续运行
+        // 使用AppConfig默认值
+        LinuxLogger::warning(errorMessage);
+    }
+}
+
+void MainWindow::applyConfig()
+{
+    targetVehicleSpeed_ = appConfig_.targetSpeed;
+
+    lookAheadDistance_ = appConfig_.lookAheadDistance;
+
+    planningDistance_ = appConfig_.planningDistance;
+
+    plannerPort_ = appConfig_.plannerPort;
+
+    trajectoryController_.setGains(appConfig_.headingGain, appConfig_.lateralGain);
+
+    if (appConfig_.controllerMode == "PurePursuit")
+    {
+        controllerMode_ = ControllerMode::PurePursuit;
+    }
+    else
+    {
+        controllerMode_ = ControllerMode::DualError;
+    }
 }
 
 void MainWindow::startBackend()
@@ -111,6 +154,9 @@ void MainWindow::stopBackend()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    // V1.9：退出前保存当前参数
+    saveConfig();
+
     // 关闭窗口前先停止后台线程
     stopBackend();
     // 接受这个事件，事件不再继续向上传递。
@@ -768,27 +814,36 @@ void MainWindow::setupUI()
     controllerCombo_->addItem("双误差控制");
     controllerCombo_->addItem("Pure Pursuit");
 
+    if (controllerMode_ == ControllerMode::PurePursuit)
+    {
+        controllerCombo_->setCurrentIndex(1);
+    }
+    else
+    {
+        controllerCombo_->setCurrentIndex(0);
+    }
+
     speedSpin_ = new QDoubleSpinBox();
     speedSpin_->setRange(1.0, 15.0);
     speedSpin_->setSingleStep(0.5);
-    speedSpin_->setValue(5.0);
+    speedSpin_->setValue(targetVehicleSpeed_);
     speedSpin_->setSuffix(" m/s");
 
     lookAheadSpin_ = new QDoubleSpinBox();
     lookAheadSpin_->setRange(1.0, 10.0);
     lookAheadSpin_->setSingleStep(0.5);
-    lookAheadSpin_->setValue(2.0);
+    lookAheadSpin_->setValue(lookAheadDistance_);
     lookAheadSpin_->setSuffix(" m");
 
     headingGainSpin_ = new QDoubleSpinBox();
     headingGainSpin_->setRange(0.0, 5.0);
     headingGainSpin_->setSingleStep(0.1);
-    headingGainSpin_->setValue(1.0);
+    headingGainSpin_->setValue(appConfig_.headingGain);
 
     lateralGainSpin_ = new QDoubleSpinBox();
     lateralGainSpin_->setRange(0.0, 5.0);
     lateralGainSpin_->setSingleStep(0.1);
-    lateralGainSpin_->setValue(1.5);
+    lateralGainSpin_->setValue(appConfig_.lateralGain);
 
     // ===== 放入面板 =====
     controlLayout->addWidget(createParamCard("控制器", controllerCombo_), 1);
@@ -988,7 +1043,26 @@ void MainWindow::setupToolBar()
 
 void MainWindow::setupStatusBar()
 {
-    statusBar()->showMessage("ADASim 引擎就绪");
+    QStatusBar *bar = statusBar();
+
+    // 底部状态栏高度
+    bar->setMinimumHeight(32);
+
+    // 单独设置状态栏样式，避免深色背景下文字看不清
+    bar->setStyleSheet(
+        "QStatusBar {"
+        " background-color: #0b1220;"
+        " color: #e2e8f0;"
+        " border-top: 1px solid #1e293b;"
+        " font-size: 13px;"
+        " font-weight: 500;"
+        " padding-left: 10px;"
+        "}"
+        "QStatusBar::item {"
+        " border: none;"
+        "}");
+
+    bar->showMessage("ADASim 引擎就绪");
 }
 
 void MainWindow::setupNetwork()
@@ -1048,15 +1122,53 @@ void MainWindow::setupNetwork()
     // 7. 开始监听8080
     // =====================================
 
-    bool success = socketServer_->startTcpServer(8080);
+    bool success = socketServer_->startTcpServer(plannerPort_);
 
     if (success)
     {
-        statusBar()->showMessage("Planner TCP Server：8080");
+        statusBar()->showMessage(QString("Planner TCP Server：%1").arg(plannerPort_));
     }
     else
     {
         statusBar()->showMessage("TCP Server启动失败");
+    }
+}
+
+void MainWindow::saveConfig()
+{
+    // 从当前程序状态重新整理配置
+    appConfig_.targetSpeed = targetVehicleSpeed_;
+
+    appConfig_.lookAheadDistance = lookAheadDistance_;
+
+    appConfig_.planningDistance = planningDistance_;
+
+    appConfig_.headingGain = headingGainSpin_->value();
+
+    appConfig_.lateralGain = lateralGainSpin_->value();
+
+    appConfig_.plannerPort = plannerPort_;
+
+    if (controllerMode_ == ControllerMode::PurePursuit)
+    {
+        appConfig_.controllerMode = "PurePursuit";
+    }
+    else
+    {
+        appConfig_.controllerMode = "DualError";
+    }
+
+    QString errorMessage;
+
+    bool success = ConfigManager::save(configPath_, appConfig_, errorMessage);
+
+    if (success)
+    {
+        LinuxLogger::info(QString("Config saved: %1").arg(configPath_));
+    }
+    else
+    {
+        LinuxLogger::warning(errorMessage);
     }
 }
 

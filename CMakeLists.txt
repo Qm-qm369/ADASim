@@ -42,7 +42,24 @@ set(PROJECT_SOURCES
     src/communication/Socket.cpp
 
     src/system/LinuxLogger.cpp
+
+    src/config/ConfigManager.cpp
 )
+
+# ==========================================
+# V1.9：把默认配置文件复制到构建目录
+# ==========================================
+
+file( MAKE_DIRECTORY
+    ${CMAKE_BINARY_DIR}/config
+)
+
+configure_file(
+    ${CMAKE_SOURCE_DIR}/config/adasim.ini
+    ${CMAKE_BINARY_DIR}/config/adasim.ini
+    COPYONLY
+)
+
 # 创建可执行文件
 add_executable(${PROJECT_NAME}
     ${PROJECT_SOURCES}

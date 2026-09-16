@@ -23,6 +23,7 @@
 #include "ControlMonitor.h"
 #include "algorithm/LongitudinalController.h"
 #include "system/LinuxLogger.h"
+#include "config/ConfigManager.h"
 
 class QLayout;
 class View2D;
@@ -89,6 +90,11 @@ private:
     void startBackend();
     // 安全停止后台线程
     void stopBackend();
+
+    // V1.9
+    void loadConfig();
+    void applyConfig();
+    void saveConfig();
 
 protected:
     // 窗口关闭时安全结束后台线程
@@ -209,6 +215,12 @@ private:
 
     QDoubleSpinBox *headingGainSpin_ = nullptr; // 航向误差权重
     QDoubleSpinBox *lateralGainSpin_ = nullptr; // 横向误差权重
+
+    // V1.9运行配置
+    AppConfig appConfig_;
+
+    // Planner监听端口
+    int plannerPort_ = 8080;
 };
 
 #endif

@@ -1,5 +1,6 @@
 // 纵向控制器
 // 根据目标速度、当前速度、前方障碍物距离，计算车辆应该保持多少速度，以及需要加速还是减速。
+// 开环：没有反馈，只管输出，不管结果；闭环：拿实际结果回来对比，不断修正输出。
 
 #ifndef LONGITUDINALCONTROLLER_H
 #define LONGITUDINALCONTROLLER_H
