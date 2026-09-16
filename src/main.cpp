@@ -4,6 +4,7 @@
 #include <QCoreApplication>
 
 #include "gui/MainWindow.h"
+#include "system/LinuxSignalHandler.h"
 
 int main(int argc, char *argv[])
 {
@@ -49,6 +50,17 @@ int main(int argc, char *argv[])
     QString dataPath;
 
     MainWindow mainWindow(configPath, dataPath);
+
+    // =====================================
+    // V2.0 Linux退出信号 创建一个专门监听 Linux SIGINT / SIGTERM 的对象
+    // =====================================
+
+    LinuxSignalHandler signalHandler;
+
+    signalHandler.install(); // 启动
+
+    QObject::connect(&signalHandler, &LinuxSignalHandler::terminationRequested,
+                     &mainWindow, &MainWindow::onTerminationRequested);
 
     mainWindow.show();
 

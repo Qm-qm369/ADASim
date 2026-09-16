@@ -14,6 +14,7 @@ MainWindow 显示
 #include <QVector>
 #include <QPointF>
 #include <QByteArray>
+#include <QString>
 
 #include "algorithm/PathPredictor.h"
 #include "algorithm/ObstacleDetector.h"
@@ -29,19 +30,15 @@ public:
 signals:
 
     // 预测出的未来轨迹
-    void pathPredicted(
-        const QVector<QPointF> &predictedTrajectory);
+    void pathPredicted(const QVector<QPointF> &predictedTrajectory);
 
-    void obstaclesDetected(
-        const QVector<QPointF> &obstaclePositions);
+    void obstaclesDetected(const QVector<QPointF> &obstaclePositions);
 
-    void mergedPointCloudReady(
-        const QVector<QPointF> &points);
+    void mergedPointCloudReady(const QVector<QPointF> &points);
 
     // V1.8：当前正前方最近障碍物距离
     // -1 表示当前没有前方障碍物
-    void frontObstacleDistanceUpdated(
-        double distance);
+    void frontObstacleDistanceUpdated(double distance);
 
     // 给 UI 和算法发送最新车辆状态
     void vehicleStateUpdated(
@@ -54,6 +51,9 @@ signals:
 
     // Python返回横向规划结果
     void lateralControlReceived(double offset);
+
+    // V2.0：Planner消息不符合协议
+    void plannerMessageError(const QString &message);
 
 public slots:
     void onPointCloudReceived(const QVector<QPointF> &points);

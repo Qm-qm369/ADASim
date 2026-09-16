@@ -44,12 +44,7 @@ MainWindow::MainWindow(const QString &configPath,
 
 MainWindow::~MainWindow()
 {
-    if (socketServer_)
-    {
-        socketServer_->stop();
-    }
-
-    stopBackend();
+    shutdownApplication();
 
     LinuxLogger::info("ADASim application stopped");
 
@@ -154,11 +149,8 @@ void MainWindow::stopBackend()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    // V1.9：退出前保存当前参数
-    saveConfig();
+    shutdownApplication();
 
-    // 关闭窗口前先停止后台线程
-    stopBackend();
     // 接受这个事件，事件不再继续向上传递。
     event->accept();
 }
@@ -243,6 +235,13 @@ void MainWindow::setupConnections()
 
     connect(dataManager_, &DataManager::frontObstacleDistanceUpdated,
             this, &MainWindow::onFrontObstacleDistanceUpdated);
+
+    connect(dataManager_, &DataManager::plannerMessageError,
+            this, [this](const QString &message)
+            {
+                LinuxLogger::warning( message);
+
+                statusBar()->showMessage(QString("Planner消息异常：%1").arg(message)); });
 }
 
 void MainWindow::onStartSimulation()
@@ -1073,6 +1072,13 @@ void MainWindow::setupNetwork()
 
     socketServer_ = new SocketServer(this);
 
+    connect(socketServer_, &SocketServer::networkError,
+            this, [this](const QString &message)
+            {
+            statusBar()->showMessage( QString("网络异常：%1") .arg(message));
+
+            LinuxLogger::error(message); });
+
     // =====================================
     // 2. DataManager -> Python
     // =====================================
@@ -1110,13 +1116,17 @@ void MainWindow::setupNetwork()
 
     connect(socketServer_, &SocketServer::clientConnected,
             this, [this]()
-            { statusBar()->showMessage(
-                  "Python Planner 已连接"); });
+            {
+            statusBar()->showMessage("● Python Planner 已连接");
+
+            LinuxLogger::info("Python Planner connected"); });
 
     connect(socketServer_, &SocketServer::clientDisconnected,
             this, [this]()
-            { statusBar()->showMessage(
-                  "Python Planner 已断开"); });
+            {
+            statusBar()->showMessage( "● Python Planner 已断开，等待重新连接");
+
+            LinuxLogger::warning("Python Planner disconnected"); });
 
     // =====================================
     // 7. 开始监听8080
@@ -1351,4 +1361,39 @@ void MainWindow::onFrontObstacleDistanceUpdated(
     double distance)
 {
     frontObstacleDistance_ = distance;
+}
+
+void MainWindow::shutdownApplication()
+{
+    // 防止重复执行退出流程
+    if (shutdownStarted_)
+    {
+        return;
+    }
+
+    shutdownStarted_ = true;
+
+    LinuxLogger::info("ADASim shutdown started");
+
+    // 1. 保存当前配置
+    saveConfig();
+
+    // 2. 停止后台仿真线程
+    stopBackend();
+
+    // 3. 停止TCP服务
+    if (socketServer_)
+    {
+        socketServer_->stop();
+    }
+
+    LinuxLogger::info("ADASim shutdown completed");
+}
+
+void MainWindow::onTerminationRequested(int signalNumber)
+{
+    LinuxLogger::warning(QString("Termination signal received: %1").arg(signalNumber));
+
+    // close()会正常触发closeEvent()
+    close();
 }

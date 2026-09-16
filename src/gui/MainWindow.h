@@ -96,6 +96,8 @@ private:
     void applyConfig();
     void saveConfig();
 
+    void shutdownApplication();
+
 protected:
     // 窗口关闭时安全结束后台线程
     void closeEvent(QCloseEvent *event) override;
@@ -122,6 +124,8 @@ private slots:
     void onReplayFrameSelected(int index);
 
     void onFrontObstacleDistanceUpdated(double distance);
+public slots:
+    void onTerminationRequested(int signalNumber);
 
 private:
     // 行车记录仪时间轴
@@ -221,6 +225,8 @@ private:
 
     // Planner监听端口
     int plannerPort_ = 8080;
+
+    bool shutdownStarted_ = false;
 };
 
 #endif

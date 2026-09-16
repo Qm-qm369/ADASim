@@ -260,37 +260,72 @@ void DataManager::onPointCloudReceived(
         mergedPoints);
 }
 
-void DataManager::onPlannerDataReceived(const QByteArray &data)
+// 接收 Python Planner 发回来的原始 JSON 数据，层层检查格式是否合法；只有确认它是一条合法的 CONTROL 控制消息，才取出 steer_offset 并通知后面的横向规划模块。
+void DataManager::onPlannerDataReceived(
+    const QByteArray &data)
 {
     QJsonParseError error;
 
     QJsonDocument document = QJsonDocument::fromJson(data, &error);
 
-    // JSON解析失败
+    // =====================================
+    // 1. JSON语法检查
+    // =====================================
+
     if (error.error != QJsonParseError::NoError)
     {
+        emit plannerMessageError(QString("Planner JSON parse failed: %1").arg(error.errorString()));
+
         return;
     }
 
-    if (!document.isObject())
+    // =====================================
+    // 2. 根节点必须是object
+    // =====================================
+
+    if (!document.isObject()) // 这是检查： JSON 最外层是不是 {}对象。
     {
+        emit plannerMessageError("Planner message is not a JSON object");
+
         return;
     }
 
-    QJsonObject root = document.object();
+    QJsonObject root = document.object(); // 真正确认是 Object 后，取出来
 
-    // 只处理CONTROL消息
-    if (root["type"].toString() != "CONTROL") // 只处理 "type": "CONTROL" 的消息。
+    // =====================================
+    // 3. type必须存在并且是CONTROL
+    // =====================================
+
+    QJsonValue typeValue = root.value("type");
+
+    if (!typeValue.isString())
     {
+        emit plannerMessageError("Planner message missing valid type");
+
         return;
     }
 
-    if (!root.contains("steer_offset"))
+    if (typeValue.toString() != "CONTROL")
     {
+        emit plannerMessageError(QString("Unsupported Planner message type: %1").arg(typeValue.toString()));
+
         return;
     }
 
-    double offset = root["steer_offset"].toDouble();
+    // =====================================
+    // 4. steer_offset必须是数字
+    // =====================================
+
+    QJsonValue offsetValue = root.value("steer_offset");
+
+    if (!offsetValue.isDouble())
+    {
+        emit plannerMessageError("CONTROL message missing numeric steer_offset");
+
+        return;
+    }
+
+    double offset = offsetValue.toDouble();
 
     emit lateralControlReceived(offset);
 }

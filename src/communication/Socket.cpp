@@ -21,15 +21,23 @@ SocketServer::~SocketServer()
     stop();
 }
 
-bool SocketServer::startTcpServer(quint16 port)
+bool SocketServer::startTcpServer(
+    quint16 port)
 {
-    // isListening() 是 QTcpServer 自带函数 判断服务器是否处于监听状态
     if (server_->isListening())
     {
         return true;
     }
 
-    return server_->listen(QHostAddress::LocalHost, port); // 在本机指定的 port 端口等待客户端连接。
+    bool success = server_->listen(QHostAddress::LocalHost, port);
+
+    if (!success)
+    {
+        // server_->errorString() Qt 网络类给你的真正错误描述
+        emit networkError(QString("TCP listen failed: %1").arg(server_->errorString()));
+    }
+
+    return success;
 }
 
 void SocketServer::stop()
@@ -47,7 +55,8 @@ void SocketServer::stop()
 }
 
 // C++ 端向已经连接的 Python 客户端发送数据。
-void SocketServer::sendToClient(const QByteArray &data)
+void SocketServer::sendToClient(
+    const QByteArray &data)
 {
     if (!client_)
     {
@@ -59,19 +68,41 @@ void SocketServer::sendToClient(const QByteArray &data)
         return;
     }
 
-    client_->write(data); // 真正发送
-    client_->flush();     // 作用是把当前待发送的数据尽量写出去。
+    qint64 written = client_->write(data);
+
+    if (written < 0)
+    {
+        emit networkError(QString("TCP send failed: %1").arg(client_->errorString()));
+
+        return;
+    }
+
+    client_->flush();
 }
 
+// 只允许一个客户端接入
 void SocketServer::onNewConnection()
 {
-    if (!server_->hasPendingConnections()) // 有没有一个已经连过来、等待我们接收的客户端。
+    if (!server_->hasPendingConnections())
     {
         return;
     }
 
-    // V0.10只支持一个Python Planner
-    client_ = server_->nextPendingConnection(); // 把这个刚连接进来的客户端取出来，得到一个 QTcpSocket*。
+    QTcpSocket *newClient = server_->nextPendingConnection();
+
+    // 已经存在Planner连接
+    if (client_ && client_->state() == QTcpSocket::ConnectedState)
+    {
+        emit networkError("A second Planner connection "
+                          "was rejected");
+
+        newClient->disconnectFromHost();
+        newClient->deleteLater();
+
+        return;
+    }
+
+    client_ = newClient;
 
     connect(client_, &QTcpSocket::readyRead,
             this, &SocketServer::onReadyRead);
@@ -79,7 +110,6 @@ void SocketServer::onNewConnection()
     connect(client_, &QTcpSocket::disconnected,
             this, &SocketServer::onClientDisconnected);
 
-    // 二者均是自带的 意思就是客户端断开以后，让 Qt 后续安全地删除这个 client_ 对象。
     connect(client_, &QTcpSocket::disconnected,
             client_, &QObject::deleteLater);
 
