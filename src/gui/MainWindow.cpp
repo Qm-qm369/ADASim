@@ -20,7 +20,7 @@ MainWindow::MainWindow(const QString &configPath,
 
     LinuxLogger::info("ADASim application started");
 
-    setWindowTitle("ADASim - 自动驾驶算法仿真平台 v0.2");
+    setWindowTitle("ADASim - 自动驾驶算法仿真平台 v2.1");
     resize(1600, 900);
 
     setStyleSheet("QMainWindow { background-color: #050811; }");
@@ -55,16 +55,18 @@ void MainWindow::loadConfig()
 {
     QString errorMessage;
 
-    bool success = ConfigManager::load(configPath_, appConfig_, errorMessage);
+    AppConfig loadedConfig;
+
+    bool success = ConfigManager::load(configPath_, loadedConfig, errorMessage);
 
     if (success)
     {
+        appConfig_ = loadedConfig;
+
         LinuxLogger::info(QString("Config loaded: %1").arg(configPath_));
     }
     else
     {
-        // 配置加载失败仍然继续运行
-        // 使用AppConfig默认值
         LinuxLogger::warning(errorMessage);
     }
 }
@@ -928,37 +930,6 @@ void MainWindow::setupUI()
     playbackLayout->addWidget(timeLabel_);
 
     mainLayout->addWidget(playbackPanel);
-
-    // =========================
-    // 3. 底部状态区域
-    // =========================
-
-    QFrame *statusPanel = new QFrame(this);
-    statusPanel->setFixedHeight(50);
-
-    statusPanel->setStyleSheet(
-        "QFrame {"
-        "background-color: #111827;"
-        "border: 1px solid #2d3748;"
-        "border-radius: 6px;"
-        "}");
-
-    QHBoxLayout *statusLayout =
-        new QHBoxLayout(statusPanel);
-
-    QLabel *statusLabel =
-        new QLabel("系统状态：就绪", statusPanel);
-
-    statusLabel->setStyleSheet(
-        "color: #00ff88;"
-        "font-size: 14px;");
-
-    statusLayout->addWidget(statusLabel);
-
-    // 把后面的空白撑开，让文字留在左侧
-    statusLayout->addStretch();
-
-    mainLayout->addWidget(statusPanel);
 }
 
 /**

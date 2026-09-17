@@ -4,7 +4,6 @@
 #include <QObject>
 #include <QByteArray>
 #include <QtGlobal>
-#include <QString>
 
 class QTcpServer;
 class QTcpSocket;
@@ -41,9 +40,7 @@ signals:
     void dataReceived(const QByteArray &data);
     void clientConnected();
     void clientDisconnected();
-
-    // V2.0：网络模块发生错误
-    void networkError(const QString &message);
+    void networkError(const QString &errorMessage);
 
 private slots:
 
@@ -58,7 +55,7 @@ private slots:
 private:
     QTcpServer *server_ = nullptr; // 监听端口、等待客户端连接。
 
-    QTcpSocket *client_ = nullptr;
+    QTcpSocket *client_ = nullptr; // 和某一个具体的 TCP 客户端进行数据收发。
 };
 
 #endif

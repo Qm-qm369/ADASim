@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(ADASim VERSION 1.0.0 LANGUAGES CXX)
+project(ADASim VERSION 2.1.0 LANGUAGES CXX)
 
 # C++ 标准与 Qt 自动生成工具配置
 set(CMAKE_CXX_STANDARD 17)
@@ -46,6 +46,24 @@ set(PROJECT_SOURCES
 
     src/config/ConfigManager.cpp
 )
+
+# ==========================================
+# V2.1 默认运行配置
+# ==========================================
+
+file( MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/config)
+
+if(NOT EXISTS
+   "${CMAKE_BINARY_DIR}/config/adasim.ini")
+
+    configure_file(
+        ${CMAKE_SOURCE_DIR}/config/adasim.ini
+        ${CMAKE_BINARY_DIR}/config/adasim.ini
+        COPYONLY
+    )
+
+endif()
+
 # 创建可执行文件
 add_executable(${PROJECT_NAME}
     ${PROJECT_SOURCES}
