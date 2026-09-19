@@ -1,21 +1,49 @@
+# =========================
+# CMake build directories
+# =========================
 build/
+build-*/
 cmake-build-*/
+install/
+
+# =========================
+# CMake generated files
+# =========================
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
 CMakeUserPresets.json
 CMakeLists.txt.user*
+compile_commands.json
+
+# =========================
+# Qt / IDE
+# =========================
 .qtcreator/
 *.autosave
+*.moc
+
+# =========================
+# C/C++ build products
+# =========================
 *.o
 *.obj
-*.moc
 *.so
 *.dll
 *.exe
 *.a
 *.lib
+
+# =========================
+# Runtime temporary files
+# =========================
 *.log
 *.tmp
+
+# =========================
+# OS generated files
+# =========================
 .DS_Store
 Thumbs.db

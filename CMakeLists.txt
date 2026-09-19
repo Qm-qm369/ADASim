@@ -135,3 +135,15 @@ install(TARGETS ${PROJECT_NAME}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+
+# ============================================================
+# 安装默认配置
+# ============================================================
+
+install(
+    FILES
+    ${CMAKE_SOURCE_DIR}/config/adasim.ini
+
+    DESTINATION
+    ${CMAKE_INSTALL_BINDIR}/config
+)
