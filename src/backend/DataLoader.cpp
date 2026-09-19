@@ -1,5 +1,9 @@
 #include "DataLoader.h"
 
+#include <QTimer>
+#include <QDebug>
+#include <QThread>
+
 DataLoader::DataLoader(const QString &dataPath,
                        QObject *parent)
     : QObject(parent), dataPath_(dataPath), isRunning_(false), timer_(new QTimer(this))

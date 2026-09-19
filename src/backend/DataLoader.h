@@ -2,12 +2,11 @@
 #define DATALOADER_H
 
 #include <QObject>
-#include <QTimer>
-#include <QDebug>
-#include <QThread>
-#include <QVector>
+#include <QString>
 #include <QVector>
 #include <QPointF>
+
+class QTimer;
 
 class DataLoader : public QObject
 {

@@ -5,6 +5,7 @@
 
 #include "gui/MainWindow.h"
 #include "system/LinuxSignalHandler.h"
+#include "../build-debug/Version.h"
 
 int main(int argc, char *argv[])
 {
@@ -12,7 +13,7 @@ int main(int argc, char *argv[])
 
     QCoreApplication::setApplicationName("ADASim");
 
-    QCoreApplication::setApplicationVersion("1.9");
+    QCoreApplication::setApplicationVersion(ADASIM_VERSION);
 
     // =====================================
     // V1.9：命令行参数

@@ -10,6 +10,7 @@
 #include <QFrame>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QCoreApplication>
 
 MainWindow::MainWindow(const QString &configPath,
                        const QString &dataPath,
@@ -20,7 +21,9 @@ MainWindow::MainWindow(const QString &configPath,
 
     LinuxLogger::info("ADASim application started");
 
-    setWindowTitle("ADASim - 自动驾驶算法仿真平台 v2.1");
+    setWindowTitle(
+        QString("ADASim - 自动驾驶算法仿真平台 v%1")
+            .arg(QCoreApplication::applicationVersion()));
     resize(1600, 900);
 
     setStyleSheet("QMainWindow { background-color: #050811; }");

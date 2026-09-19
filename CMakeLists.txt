@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(ADASim VERSION 2.1.0 LANGUAGES CXX)
+project(ADASim VERSION 2.2.0 LANGUAGES CXX)
+
+include(GNUInstallDirs) #提供标准 Linux 安装目录变量
+
+# 生成 compile_commands.json
+# 后续 clangd / VSCode / 静态分析工具可以使用
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # C++ 标准与 Qt 自动生成工具配置
 set(CMAKE_CXX_STANDARD 17)
@@ -11,11 +17,28 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 # 查找 Qt (向下兼容 Qt5，向上支持 Qt6)
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Gui Widgets OpenGL Network Sql)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Gui Widgets OpenGL Network Sql)
+find_package(QT 
+            NAMES Qt6 Qt5 
+            REQUIRED COMPONENTS 
+            Core 
+            Gui 
+            Widgets
+            Network)
 
-# 查找 OpenCV 视觉库
-find_package(OpenCV REQUIRED)
+find_package(
+            Qt${QT_VERSION_MAJOR}
+            REQUIRED COMPONENTS
+            Core
+            Gui
+            Widgets
+            Network
+)
+
+configure_file(
+    ${CMAKE_SOURCE_DIR}/cmake/Version.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/Version.h
+    @ONLY
+)
 
 # ============================================================================
 # [源文件清单]
@@ -74,9 +97,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::Gui
     Qt${QT_VERSION_MAJOR}::Widgets
-    Qt${QT_VERSION_MAJOR}::OpenGL
     Qt${QT_VERSION_MAJOR}::Network
-    Qt${QT_VERSION_MAJOR}::Sql
     ${OpenCV_LIBS}
 )
 
@@ -91,6 +112,22 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/src/algorithm
     ${OpenCV_INCLUDE_DIRS}
 )
+
+# ============================================================
+# 编译警告
+# ============================================================
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+
+    target_compile_options(
+        ${PROJECT_NAME}
+        PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+    )
+
+endif()
 
 # 安装部署规则
 install(TARGETS ${PROJECT_NAME}
