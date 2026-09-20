@@ -403,6 +403,30 @@ src/backend/DataManager.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ADASim.dir/build.make CMakeFiles/ADASim.dir/src/backend/DataManager.cpp.s
 .PHONY : src/backend/DataManager.cpp.s
 
+src/backend/SimulationEngine.o: src/backend/SimulationEngine.cpp.o
+.PHONY : src/backend/SimulationEngine.o
+
+# target to build an object file
+src/backend/SimulationEngine.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ADASim.dir/build.make CMakeFiles/ADASim.dir/src/backend/SimulationEngine.cpp.o
+.PHONY : src/backend/SimulationEngine.cpp.o
+
+src/backend/SimulationEngine.i: src/backend/SimulationEngine.cpp.i
+.PHONY : src/backend/SimulationEngine.i
+
+# target to preprocess a source file
+src/backend/SimulationEngine.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ADASim.dir/build.make CMakeFiles/ADASim.dir/src/backend/SimulationEngine.cpp.i
+.PHONY : src/backend/SimulationEngine.cpp.i
+
+src/backend/SimulationEngine.s: src/backend/SimulationEngine.cpp.s
+.PHONY : src/backend/SimulationEngine.s
+
+# target to generate assembly for a file
+src/backend/SimulationEngine.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ADASim.dir/build.make CMakeFiles/ADASim.dir/src/backend/SimulationEngine.cpp.s
+.PHONY : src/backend/SimulationEngine.cpp.s
+
 src/backend/SimulationRecorder.o: src/backend/SimulationRecorder.cpp.o
 .PHONY : src/backend/SimulationRecorder.o
 
@@ -684,6 +708,9 @@ help:
 	@echo "... src/backend/DataManager.o"
 	@echo "... src/backend/DataManager.i"
 	@echo "... src/backend/DataManager.s"
+	@echo "... src/backend/SimulationEngine.o"
+	@echo "... src/backend/SimulationEngine.i"
+	@echo "... src/backend/SimulationEngine.s"
 	@echo "... src/backend/SimulationRecorder.o"
 	@echo "... src/backend/SimulationRecorder.i"
 	@echo "... src/backend/SimulationRecorder.s"

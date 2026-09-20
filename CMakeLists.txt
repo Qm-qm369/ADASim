@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(ADASim VERSION 2.2.0 LANGUAGES CXX)
+project(ADASim VERSION 2.3.0 LANGUAGES CXX)
 
 include(GNUInstallDirs) #提供标准 Linux 安装目录变量
 
@@ -54,6 +54,7 @@ set(PROJECT_SOURCES
     src/backend/DataLoader.cpp
     src/backend/DataManager.cpp
     src/backend/SimulationRecorder.cpp
+    src/backend/SimulationEngine.cpp
 
     src/algorithm/ObstacleDetector.cpp
     src/algorithm/PathPredictor.cpp
@@ -98,7 +99,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt${QT_VERSION_MAJOR}::Gui
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Network
-    ${OpenCV_LIBS}
 )
 
 # 包含头文件目录 (Include Directories)
@@ -110,7 +110,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/src/config
     ${CMAKE_SOURCE_DIR}/src/communication
     ${CMAKE_SOURCE_DIR}/src/algorithm
-    ${OpenCV_INCLUDE_DIRS}
 )
 
 # ============================================================
