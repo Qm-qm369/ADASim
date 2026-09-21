@@ -9,3 +9,4 @@
 #include "MXUWEOXILK/moc_View2D.cpp"
 #include "KL6KOUKHEC/moc_HeadlessRunner.cpp"
 #include "IMGALCVROS/moc_LinuxSignalHandler.cpp"
+#include "B7U3TQATOI/moc_TestEvaluator.cpp"

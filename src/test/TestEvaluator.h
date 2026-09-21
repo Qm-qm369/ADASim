@@ -1,15 +1,12 @@
 #ifndef TESTEVALUATOR_H
 #define TESTEVALUATOR_H
 
-#include <QVector>
+#include <QObject>
 
 #include "backend/SimulationRecorder.h"
 
 struct TestResult
 {
-
-    bool passed = false;
-
     bool aebTriggered = false;
 
     bool collision = false;
@@ -17,12 +14,23 @@ struct TestResult
     double minTtc = -1.0;
 };
 
-class TestEvaluator
+class TestEvaluator : public QObject
 {
+    Q_OBJECT
 
 public:
-    TestResult evaluate(
-        const QVector<SimulationFrame> &frames);
+    explicit TestEvaluator(
+        QObject *parent = nullptr);
+
+    void reset();
+
+    void processFrame(
+        const SimulationFrame &frame);
+
+    TestResult result() const;
+
+private:
+    TestResult result_;
 };
 
 #endif

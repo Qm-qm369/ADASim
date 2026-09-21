@@ -478,6 +478,18 @@ void HeadlessRunner::onTerminationRequested(
 
 void HeadlessRunner::shutdown()
 {
+    TestResult result =
+        simulationEngine_->testResult();
+
+    qInfo()
+        << "[TEST]"
+        << "AEB:"
+        << result.aebTriggered
+        << "Collision:"
+        << result.collision
+        << "Min TTC:"
+        << result.minTtc;
+
     if (shutdownStarted_)
     {
         return;

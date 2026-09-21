@@ -10,6 +10,7 @@
 #include "algorithm/PurePursuitController.h"
 #include "algorithm/LongitudinalController.h"
 #include "backend/SimulationRecorder.h"
+#include "test/TestEvaluator.h"
 
 class SimulationEngine : public QObject
 {
@@ -122,6 +123,8 @@ private:
 
     void rebuildPlannedTrajectory();
 
+    TestResult testResult() const;
+
 private:
     VehicleModel vehicleModel_;
 
@@ -132,6 +135,8 @@ private:
     LongitudinalController longitudinalController_;
 
     SimulationRecorder simulationRecorder_;
+
+    TestEvaluator testEvaluator_;
 
     QString recordFilePath_; // 保存当前记录文件路径。
 

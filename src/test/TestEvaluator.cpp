@@ -1,41 +1,47 @@
 #include "TestEvaluator.h"
 
-TestResult TestEvaluator::evaluate(const QVector<SimulationFrame> &frames)
+TestEvaluator::TestEvaluator(
+    QObject *parent)
+    : QObject(parent)
+{
+}
+
+void TestEvaluator::reset()
+{
+    result_ = TestResult();
+}
+
+void TestEvaluator::processFrame(
+    const SimulationFrame &frame)
 {
 
-    TestResult result;
+    if (frame.emergencyBrake)
+    {
+        result_.aebTriggered = true;
+    }
 
-    double minTtc = -1.0;
-
-    for (const auto &frame : frames)
+    if (frame.ttc > 0)
     {
 
-        if (frame.emergencyBrake)
+        if (result_.minTtc < 0 ||
+            frame.ttc < result_.minTtc)
         {
-            result.aebTriggered = true;
-        }
-
-        if (frame.ttc > 0)
-        {
-
-            if (minTtc < 0 ||
-                frame.ttc < minTtc)
-            {
-                minTtc = frame.ttc;
-            }
-        }
-
-        if (frame.frontObstacleDistance < 0)
-        {
-            result.collision = true;
+            result_.minTtc =
+                frame.ttc;
         }
     }
 
-    result.minTtc = minTtc;
+    /*
+        注意：
+        frontObstacleDistance=-1
+        表示没有障碍物
 
-    result.passed =
-        result.aebTriggered &&
-        !result.collision;
+        不能认为碰撞
+    */
 
-    return result;
+    if (frame.frontObstacleDistance > 0 &&
+        frame.frontObstacleDistance < 1.0)
+    {
+        result_.collision = true;
+    }
 }

@@ -606,6 +606,9 @@ void SimulationEngine::onSimulationTick(
 
     simulationRecorder_.append(frame);
 
+    testEvaluator_.processFrame(
+        frame);
+
     int currentIndex =
         simulationRecorder_.size() -
         1;
@@ -638,4 +641,9 @@ void SimulationEngine::requestReplayFrame(
         index,
         simulationRecorder_.size() - 1,
         frame);
+}
+
+TestResult SimulationEngine::testResult() const
+{
+    return testEvaluator_.result();
 }
