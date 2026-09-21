@@ -47,6 +47,12 @@ void SimulationRecorder::close()
     recording_ = false;
 }
 
+const QVector<SimulationFrame> &
+SimulationRecorder::frames() const
+{
+    return frames_;
+}
+
 void SimulationRecorder::clear()
 {
     frames_.clear();

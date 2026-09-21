@@ -715,6 +715,30 @@ src/system/LinuxSignalHandler.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ADASim.dir/build.make CMakeFiles/ADASim.dir/src/system/LinuxSignalHandler.cpp.s
 .PHONY : src/system/LinuxSignalHandler.cpp.s
 
+src/test/TestEvaluator.o: src/test/TestEvaluator.cpp.o
+.PHONY : src/test/TestEvaluator.o
+
+# target to build an object file
+src/test/TestEvaluator.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ADASim.dir/build.make CMakeFiles/ADASim.dir/src/test/TestEvaluator.cpp.o
+.PHONY : src/test/TestEvaluator.cpp.o
+
+src/test/TestEvaluator.i: src/test/TestEvaluator.cpp.i
+.PHONY : src/test/TestEvaluator.i
+
+# target to preprocess a source file
+src/test/TestEvaluator.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ADASim.dir/build.make CMakeFiles/ADASim.dir/src/test/TestEvaluator.cpp.i
+.PHONY : src/test/TestEvaluator.cpp.i
+
+src/test/TestEvaluator.s: src/test/TestEvaluator.cpp.s
+.PHONY : src/test/TestEvaluator.s
+
+# target to generate assembly for a file
+src/test/TestEvaluator.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ADASim.dir/build.make CMakeFiles/ADASim.dir/src/test/TestEvaluator.cpp.s
+.PHONY : src/test/TestEvaluator.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -795,6 +819,9 @@ help:
 	@echo "... src/system/LinuxSignalHandler.o"
 	@echo "... src/system/LinuxSignalHandler.i"
 	@echo "... src/system/LinuxSignalHandler.s"
+	@echo "... src/test/TestEvaluator.o"
+	@echo "... src/test/TestEvaluator.i"
+	@echo "... src/test/TestEvaluator.s"
 .PHONY : help
 
 

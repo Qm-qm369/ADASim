@@ -73,6 +73,8 @@ set(PROJECT_SOURCES
     src/headless/HeadlessRunner.cpp
 
     src/scenario/ScenarioLoader.cpp
+
+    src/test/TestEvaluator.cpp
 )
 
 # ==========================================
