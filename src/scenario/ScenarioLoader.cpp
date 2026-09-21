@@ -117,7 +117,7 @@ bool ScenarioLoader::load(
     }
     /*
     把 JSON 根对象取出来。
-    现在：  root 代表：
+    现在 root 代表：
     {
     "name":"test",
     "obstacles":[]

@@ -181,12 +181,6 @@ void MainWindow::setupConnections()
 
     connect(
         simulationEngine_,
-        &SimulationEngine::frameUpdated,
-        this,
-        &MainWindow::onSimulationFrameUpdated);
-
-    connect(
-        simulationEngine_,
         &SimulationEngine::liveVehicleStateReady,
         view2D_,
         &View2D::showReplayFrame);

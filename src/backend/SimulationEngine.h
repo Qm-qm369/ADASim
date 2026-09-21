@@ -27,6 +27,9 @@ public:
         double lateralGain,
         bool usePurePursuit);
 
+    bool startRecording(
+        const QString &filePath);
+
 signals:
 
     // 当前车辆状态继续交给 DataManager
@@ -129,6 +132,8 @@ private:
     LongitudinalController longitudinalController_;
 
     SimulationRecorder simulationRecorder_;
+
+    QString recordFilePath_; // 保存当前记录文件路径。
 
     double totalDistance_ = 0.0;
 

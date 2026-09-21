@@ -63,6 +63,9 @@ bool HeadlessRunner::initialize()
     simulationEngine_ =
         new SimulationEngine(this);
 
+    simulationEngine_->startRecording(
+        "record/simulation.csv");
+
     // 使用 INI 参数配置 Engine
     simulationEngine_->configure(
         appConfig_.targetSpeed,

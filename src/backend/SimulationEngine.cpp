@@ -2,6 +2,8 @@
 
 #include <cmath>
 #include <QDebug>
+#include <QDir>
+#include <QFileInfo>
 
 #include "system/LinuxLogger.h"
 
@@ -36,6 +38,41 @@ void SimulationEngine::configure(
         usePurePursuit
             ? ControllerMode::PurePursuit
             : ControllerMode::DualError;
+}
+
+bool SimulationEngine::startRecording(
+    const QString &filePath)
+{
+    QFileInfo info(filePath);
+
+    QDir dir =
+        info.absoluteDir(); // 获取文件所在目录 absoluteDir() 获取绝对路径目录。
+
+    if (!dir.exists())
+    {
+        dir.mkpath("."); // 创建当前这个 QDir 指向的目录。
+    }
+
+    recordFilePath_ = filePath;
+
+    bool result =
+        simulationRecorder_.open(
+            filePath);
+
+    if (result)
+    {
+        qInfo()
+            << "[Recorder] opened:"
+            << filePath;
+    }
+    else
+    {
+        qWarning()
+            << "[Recorder] open failed:"
+            << filePath;
+    }
+
+    return result;
 }
 
 void SimulationEngine::start()
@@ -98,6 +135,8 @@ void SimulationEngine::stop()
     simulationRecorder_.clear();
 
     replayMode_ = false;
+
+    simulationRecorder_.close();
 
     emit plannedTrajectoryUpdated(
         QVector<QPointF>());
@@ -565,8 +604,7 @@ void SimulationEngine::onSimulationTick(
             ? 0
             : 1;
 
-    simulationRecorder_.append(
-        frame);
+    simulationRecorder_.append(frame);
 
     int currentIndex =
         simulationRecorder_.size() -
