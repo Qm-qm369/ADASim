@@ -643,6 +643,30 @@ src/main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ADASim.dir/build.make CMakeFiles/ADASim.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
 
+src/scenario/ScenarioLoader.o: src/scenario/ScenarioLoader.cpp.o
+.PHONY : src/scenario/ScenarioLoader.o
+
+# target to build an object file
+src/scenario/ScenarioLoader.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ADASim.dir/build.make CMakeFiles/ADASim.dir/src/scenario/ScenarioLoader.cpp.o
+.PHONY : src/scenario/ScenarioLoader.cpp.o
+
+src/scenario/ScenarioLoader.i: src/scenario/ScenarioLoader.cpp.i
+.PHONY : src/scenario/ScenarioLoader.i
+
+# target to preprocess a source file
+src/scenario/ScenarioLoader.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ADASim.dir/build.make CMakeFiles/ADASim.dir/src/scenario/ScenarioLoader.cpp.i
+.PHONY : src/scenario/ScenarioLoader.cpp.i
+
+src/scenario/ScenarioLoader.s: src/scenario/ScenarioLoader.cpp.s
+.PHONY : src/scenario/ScenarioLoader.s
+
+# target to generate assembly for a file
+src/scenario/ScenarioLoader.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ADASim.dir/build.make CMakeFiles/ADASim.dir/src/scenario/ScenarioLoader.cpp.s
+.PHONY : src/scenario/ScenarioLoader.cpp.s
+
 src/system/LinuxLogger.o: src/system/LinuxLogger.cpp.o
 .PHONY : src/system/LinuxLogger.o
 
@@ -762,6 +786,9 @@ help:
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
+	@echo "... src/scenario/ScenarioLoader.o"
+	@echo "... src/scenario/ScenarioLoader.i"
+	@echo "... src/scenario/ScenarioLoader.s"
 	@echo "... src/system/LinuxLogger.o"
 	@echo "... src/system/LinuxLogger.i"
 	@echo "... src/system/LinuxLogger.s"

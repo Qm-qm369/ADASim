@@ -1,0 +1,9 @@
+{
+    "name": "straight_obstacle",
+    "obstacles": [
+        {
+            "x": 20.0,
+            "y": 0.0
+        }
+    ]
+}

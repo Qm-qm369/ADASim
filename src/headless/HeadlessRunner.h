@@ -7,6 +7,7 @@
 #include "config/ConfigManager.h"
 #include "backend/SimulationEngine.h"
 
+// 前向声明。只需要知道有这么一个类 暂时不需要类里面长什么样
 class DataLoader;
 class DataManager;
 class SocketServer;

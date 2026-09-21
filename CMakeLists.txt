@@ -71,6 +71,8 @@ set(PROJECT_SOURCES
     src/config/ConfigManager.cpp
 
     src/headless/HeadlessRunner.cpp
+
+    src/scenario/ScenarioLoader.cpp
 )
 
 # ==========================================
