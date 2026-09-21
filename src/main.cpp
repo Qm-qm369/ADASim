@@ -75,6 +75,15 @@ int main(
 
     QCommandLineParser parser;
 
+    QCommandLineOption testOption(
+        QStringList() << "test",
+        "Enable automatic test mode");
+
+    parser.addOption(testOption);
+
+    bool testMode =
+        parser.isSet(testOption);
+
     parser.setApplicationDescription(
         "ADASim autonomous driving simulator");
 

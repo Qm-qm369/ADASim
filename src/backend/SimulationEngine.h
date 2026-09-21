@@ -31,6 +31,8 @@ public:
     bool startRecording(
         const QString &filePath);
 
+    TestResult testResult() const;
+
 signals:
 
     // 当前车辆状态继续交给 DataManager
@@ -122,8 +124,6 @@ private:
         double angle) const;
 
     void rebuildPlannedTrajectory();
-
-    TestResult testResult() const;
 
 private:
     VehicleModel vehicleModel_;

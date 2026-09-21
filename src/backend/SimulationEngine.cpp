@@ -43,6 +43,8 @@ void SimulationEngine::configure(
 bool SimulationEngine::startRecording(
     const QString &filePath)
 {
+    testEvaluator_.reset();
+
     QFileInfo info(filePath);
 
     QDir dir =

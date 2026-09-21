@@ -45,3 +45,15 @@ void TestEvaluator::processFrame(
         result_.collision = true;
     }
 }
+
+TestResult TestEvaluator::result() const
+{
+    TestResult result =
+        result_;
+
+    result.passed =
+        result_.aebTriggered &&
+        !result_.collision;
+
+    return result;
+}

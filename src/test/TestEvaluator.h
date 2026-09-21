@@ -12,6 +12,8 @@ struct TestResult
     bool collision = false;
 
     double minTtc = -1.0;
+
+    bool passed = false;
 };
 
 class TestEvaluator : public QObject

@@ -32,6 +32,9 @@ public:
 
     bool initialize();
 
+    void setTestMode(
+        bool enable);
+
 public slots:
 
     // LinuxSignalHandler 发来 SIGINT / SIGTERM 后执行
@@ -60,6 +63,10 @@ private:
 
     void shutdown();
 
+    void printTestResult();
+
+    void saveTestReport(const TestResult &result);
+
 private:
     QString configPath_;
     QString dataPath_;
@@ -85,6 +92,8 @@ private:
 
     // 控制终端打印频率
     int frameCounter_ = 0;
+
+    bool testMode_ = false;
 };
 
 #endif

@@ -2,6 +2,8 @@
 
 #include <QCoreApplication>
 #include <QDebug>
+#include <QFile>
+#include <QTextStream>
 
 #include "backend/DataLoader.h"
 #include "backend/DataManager.h"
@@ -515,6 +517,92 @@ void HeadlessRunner::shutdown()
         socketServer_->stop();
     }
 
+    if (testMode_)
+    {
+        printTestResult();
+    }
+
     LinuxLogger::info(
         "ADASim headless shutdown completed");
+}
+
+void HeadlessRunner::setTestMode(
+    bool enable)
+{
+    testMode_ = enable;
+}
+
+void HeadlessRunner::printTestResult()
+{
+
+    TestResult result =
+        simulationEngine_->testResult();
+
+    qInfo()
+        << "========== TEST ==========";
+
+    qInfo()
+        << "AEB:"
+        << result.aebTriggered;
+
+    qInfo()
+        << "Collision:"
+        << result.collision;
+
+    qInfo()
+        << "Min TTC:"
+        << result.minTtc;
+
+    qInfo()
+        << "==========================";
+}
+
+void HeadlessRunner::saveTestReport(
+    const TestResult &result)
+{
+
+    QFile file(
+        "test_result/report.txt");
+
+    if (!file.open(
+            QIODevice::WriteOnly |
+            QIODevice::Text))
+    {
+        return;
+    }
+
+    QTextStream out(&file);
+
+    out
+        << "ADASim Test Report\n\n";
+
+    out
+        << "PASS:"
+        << result.passed
+        << "\n";
+
+    out
+        << "AEB:"
+        << result.aebTriggered
+        << "\n";
+
+    out
+        << "Collision:"
+        << result.collision
+        << "\n";
+
+    out
+        << "Min TTC:"
+        << result.minTtc
+        << "\n";
+
+    QDir dir(
+        "test_result");
+
+    if (!dir.exists())
+    {
+        dir.mkpath(".");
+    }
+
+    file.close();
 }
