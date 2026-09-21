@@ -4,6 +4,7 @@
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
+#include <QDir>
 
 #include "backend/DataLoader.h"
 #include "backend/DataManager.h"
@@ -502,6 +503,11 @@ void HeadlessRunner::shutdown()
     LinuxLogger::info(
         "ADASim headless shutdown started");
 
+    if (testMode_)
+    {
+        printTestResult();
+    }
+
     if (dataLoader_)
     {
         dataLoader_->stop();
@@ -517,11 +523,6 @@ void HeadlessRunner::shutdown()
         socketServer_->stop();
     }
 
-    if (testMode_)
-    {
-        printTestResult();
-    }
-
     LinuxLogger::info(
         "ADASim headless shutdown completed");
 }
@@ -534,6 +535,23 @@ void HeadlessRunner::setTestMode(
 
 void HeadlessRunner::printTestResult()
 {
+    QDir dir(
+        "test_result");
+
+    if (!dir.exists())
+    {
+        dir.mkpath(".");
+    }
+
+    QFile file(
+        "test_result/report.txt");
+
+    if (!file.open(
+            QIODevice::WriteOnly |
+            QIODevice::Text))
+    {
+        return;
+    }
 
     TestResult result =
         simulationEngine_->testResult();
@@ -595,14 +613,6 @@ void HeadlessRunner::saveTestReport(
         << "Min TTC:"
         << result.minTtc
         << "\n";
-
-    QDir dir(
-        "test_result");
-
-    if (!dir.exists())
-    {
-        dir.mkpath(".");
-    }
 
     file.close();
 }
