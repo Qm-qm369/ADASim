@@ -19,13 +19,35 @@ HeadlessRunner::HeadlessRunner(
       dataPath_(dataPath),
       scenarioPath_(scenarioPath)
 {
+}
+
+HeadlessRunner::~HeadlessRunner()
+{
+    shutdown();
+
+    LinuxLogger::info(
+        "ADASim headless mode stopped");
+
+    LinuxLogger::shutdown();
+}
+
+bool HeadlessRunner::initialize()
+{
+    if (initialized_)
+    {
+        return true;
+    }
+
     LinuxLogger::init();
 
     LinuxLogger::info(
         "ADASim headless mode initializing");
 
     // 1. 加载配置
-    loadConfig();
+    if (!loadConfig())
+    {
+        return false;
+    }
 
     // 2. 创建数据时钟
     dataLoader_ =
@@ -62,22 +84,21 @@ HeadlessRunner::HeadlessRunner(
     {
         LinuxLogger::warning(
             "No valid scenario loaded");
+
+        return false;
     }
 
     setupNetwork();
-}
-
-HeadlessRunner::~HeadlessRunner()
-{
-    shutdown();
 
     LinuxLogger::info(
-        "ADASim headless mode stopped");
+        "ADASim headless initialized");
 
-    LinuxLogger::shutdown();
+    initialized_ = true;
+
+    return true;
 }
 
-void HeadlessRunner::loadConfig()
+bool HeadlessRunner::loadConfig()
 {
     QString errorMessage;
 
@@ -98,11 +119,14 @@ void HeadlessRunner::loadConfig()
             QString(
                 "Config loaded: %1")
                 .arg(configPath_));
+
+        return true;
     }
     else
     {
         LinuxLogger::warning(
             errorMessage);
+        return false;
     }
 }
 
@@ -151,11 +175,18 @@ bool HeadlessRunner::loadScenario()
     for (const QPointF &point :
          scenario_.obstacles)
     {
+        qInfo()
+            << "[SCENARIO]"
+            << "Obstacle:"
+            << point.x()
+            << point.y();
 
         dataManager_->onUserObstacleAdded(
             point.x(),
             point.y());
     }
+
+    scenarioLoaded_ = true;
 
     return true;
 }
@@ -326,6 +357,15 @@ void HeadlessRunner::start()
 {
     if (started_)
     {
+        return;
+    }
+
+    if (!initialized_)
+    {
+        qCritical()
+            << "[ADASim]"
+            << "Runner not initialized";
+
         return;
     }
 

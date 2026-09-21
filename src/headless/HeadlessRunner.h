@@ -30,6 +30,8 @@ public:
     // 启动 Headless 仿真
     void start();
 
+    bool initialize();
+
 public slots:
 
     // LinuxSignalHandler 发来 SIGINT / SIGTERM 后执行
@@ -49,7 +51,7 @@ private slots:
         const QString &status);
 
 private:
-    void loadConfig();
+    bool loadConfig();
     bool loadScenario();
 
     void setupConnections();
@@ -74,9 +76,12 @@ private:
 
     SocketServer *socketServer_ = nullptr;
 
+    bool initialized_ = false;
     bool started_ = false;
 
     bool shutdownStarted_ = false;
+
+    bool scenarioLoaded_ = false;
 
     // 控制终端打印频率
     int frameCounter_ = 0;

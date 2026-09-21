@@ -3,6 +3,7 @@
 #include <QCommandLineParser>
 #include <QCommandLineOption>
 #include <QString>
+#include <QDebug>
 
 #include <memory>
 
@@ -167,6 +168,14 @@ int main(
             &LinuxSignalHandler::terminationRequested,
             &runner,
             &HeadlessRunner::onTerminationRequested);
+
+        if (!runner.initialize())
+        {
+            qCritical()
+                << "ADASim initialization failed";
+
+            return -1;
+        }
 
         runner.start();
 
