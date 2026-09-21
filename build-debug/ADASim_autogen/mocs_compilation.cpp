@@ -7,4 +7,5 @@
 #include "MXUWEOXILK/moc_MainWindow.cpp"
 #include "MXUWEOXILK/moc_SensorView.cpp"
 #include "MXUWEOXILK/moc_View2D.cpp"
+#include "KL6KOUKHEC/moc_HeadlessRunner.cpp"
 #include "IMGALCVROS/moc_LinuxSignalHandler.cpp"

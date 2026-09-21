@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(ADASim VERSION 2.3.0 LANGUAGES CXX)
+project(ADASim VERSION 2.4.0 LANGUAGES CXX)
 
 include(GNUInstallDirs) #提供标准 Linux 安装目录变量
 
@@ -69,6 +69,8 @@ set(PROJECT_SOURCES
     src/system/LinuxSignalHandler.cpp
 
     src/config/ConfigManager.cpp
+
+    src/headless/HeadlessRunner.cpp
 )
 
 # ==========================================
@@ -103,6 +105,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 
 # 包含头文件目录 (Include Directories)
 target_include_directories(${PROJECT_NAME} PRIVATE
+
+    ${CMAKE_CURRENT_BINARY_DIR} #编译 ${PROJECT_NAME} 这个程序的时候，除了去 src/ 等目录找头文件，也去当前构建目录找头文件。
+
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/gui
     ${CMAKE_SOURCE_DIR}/src/backend

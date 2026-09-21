@@ -595,6 +595,30 @@ src/gui/View2D.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ADASim.dir/build.make CMakeFiles/ADASim.dir/src/gui/View2D.cpp.s
 .PHONY : src/gui/View2D.cpp.s
 
+src/headless/HeadlessRunner.o: src/headless/HeadlessRunner.cpp.o
+.PHONY : src/headless/HeadlessRunner.o
+
+# target to build an object file
+src/headless/HeadlessRunner.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ADASim.dir/build.make CMakeFiles/ADASim.dir/src/headless/HeadlessRunner.cpp.o
+.PHONY : src/headless/HeadlessRunner.cpp.o
+
+src/headless/HeadlessRunner.i: src/headless/HeadlessRunner.cpp.i
+.PHONY : src/headless/HeadlessRunner.i
+
+# target to preprocess a source file
+src/headless/HeadlessRunner.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ADASim.dir/build.make CMakeFiles/ADASim.dir/src/headless/HeadlessRunner.cpp.i
+.PHONY : src/headless/HeadlessRunner.cpp.i
+
+src/headless/HeadlessRunner.s: src/headless/HeadlessRunner.cpp.s
+.PHONY : src/headless/HeadlessRunner.s
+
+# target to generate assembly for a file
+src/headless/HeadlessRunner.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ADASim.dir/build.make CMakeFiles/ADASim.dir/src/headless/HeadlessRunner.cpp.s
+.PHONY : src/headless/HeadlessRunner.cpp.s
+
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
 
@@ -732,6 +756,9 @@ help:
 	@echo "... src/gui/View2D.o"
 	@echo "... src/gui/View2D.i"
 	@echo "... src/gui/View2D.s"
+	@echo "... src/headless/HeadlessRunner.o"
+	@echo "... src/headless/HeadlessRunner.i"
+	@echo "... src/headless/HeadlessRunner.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
