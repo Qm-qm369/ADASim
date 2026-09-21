@@ -112,13 +112,30 @@ int main(
     parser.addOption(
         headlessOption);
 
+    QString scenarioPath;
+
+    QCommandLineOption scenarioOption(
+        QStringList()
+            << "s"
+            << "scenario",
+        "Scenario json file",
+        "file");
+
+    parser.addOption(
+        scenarioOption);
+
     // 正式解析命令行
     parser.process(
         *app);
 
-    QString configPath =
-        parser.value(
-            configOption);
+    if (parser.isSet(scenarioOption))
+    {
+        scenarioPath =
+            parser.value(
+                scenarioOption);
+    }
+
+    QString configPath = parser.value(configOption);
 
     bool headlessMode =
         parser.isSet(
@@ -142,7 +159,8 @@ int main(
     {
         HeadlessRunner runner(
             configPath,
-            dataPath);
+            dataPath,
+            scenarioPath);
 
         QObject::connect(
             &signalHandler,

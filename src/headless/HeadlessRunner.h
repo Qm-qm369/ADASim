@@ -5,6 +5,7 @@
 #include <QString>
 
 #include "config/ConfigManager.h"
+#include "scenario/ScenarioLoader.h"
 #include "backend/SimulationEngine.h"
 
 // 前向声明。只需要知道有这么一个类 暂时不需要类里面长什么样
@@ -20,6 +21,7 @@ public:
     explicit HeadlessRunner(
         const QString &configPath,
         const QString &dataPath,
+        const QString &scenarioPath,
         QObject *parent = nullptr);
 
     ~HeadlessRunner();
@@ -48,6 +50,7 @@ private slots:
 
 private:
     void loadConfig();
+    bool loadScenario();
 
     void setupConnections();
 
@@ -58,8 +61,10 @@ private:
 private:
     QString configPath_;
     QString dataPath_;
+    QString scenarioPath_;
 
     AppConfig appConfig_;
+    Scenario scenario_;
 
     DataLoader *dataLoader_ = nullptr;
 

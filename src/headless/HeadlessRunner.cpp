@@ -12,10 +12,12 @@
 HeadlessRunner::HeadlessRunner(
     const QString &configPath,
     const QString &dataPath,
+    const QString &scenarioPath,
     QObject *parent)
     : QObject(parent),
       configPath_(configPath),
-      dataPath_(dataPath)
+      dataPath_(dataPath),
+      scenarioPath_(scenarioPath)
 {
     LinuxLogger::init();
 
@@ -55,6 +57,12 @@ HeadlessRunner::HeadlessRunner(
 
     // 6. 建立连接
     setupConnections();
+
+    if (!loadScenario())
+    {
+        LinuxLogger::warning(
+            "No valid scenario loaded");
+    }
 
     setupNetwork();
 }
@@ -96,6 +104,60 @@ void HeadlessRunner::loadConfig()
         LinuxLogger::warning(
             errorMessage);
     }
+}
+
+bool HeadlessRunner::loadScenario()
+{
+    // 没有指定scenario
+    // 保持V2.4行为
+    if (scenarioPath_.isEmpty())
+    {
+        qInfo()
+            << "[SCENARIO]"
+            << "No scenario specified";
+
+        return true;
+    }
+
+    QString errorMessage;
+
+    bool success =
+        ScenarioLoader::load(
+            scenarioPath_,
+            scenario_,
+            errorMessage);
+
+    if (!success)
+    {
+        LinuxLogger::error(
+            errorMessage);
+
+        qCritical().noquote()
+            << "[SCENARIO]"
+            << errorMessage;
+
+        return false;
+    }
+
+    qInfo().noquote()
+        << QString(
+               "[SCENARIO] Loaded: %1 "
+               "obstacles=%2")
+               .arg(
+                   scenario_.name)
+               .arg(
+                   scenario_.obstacles.size());
+
+    for (const QPointF &point :
+         scenario_.obstacles)
+    {
+
+        dataManager_->onUserObstacleAdded(
+            point.x(),
+            point.y());
+    }
+
+    return true;
 }
 
 void HeadlessRunner::setupConnections()
