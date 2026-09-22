@@ -38,7 +38,8 @@ public:
     void processFrame(
         const SimulationFrame &frame);
 
-    TestResult result() const;
+    TestResult result(
+        AebExpectation expectation = AebExpectation::Any) const;
 
 private:
     TestResult result_;

@@ -4,112 +4,71 @@
 
 基于 **C++17 / Qt / Linux** 开发的自动驾驶算法仿真平台。
 
-ADASim 用于学习和验证自动驾驶基础算法，目前实现了从传感器数据生成、障碍物检测、路径规划、车辆控制到 Qt 可视化显示的基础闭环仿真流程。
+ADASim 用于学习和验证自动驾驶基础算法，实现从传感器数据生成、障碍物检测、路径规划、车辆控制到 Qt 可视化的基础闭环仿真。仿真核心已从界面中拆出，支持图形界面和无界面两种运行方式。
 
-当前版本：**V2.2**
+当前版本：**v2.8.0**
+
+许可证：MIT
 
 ---
 
 ## 项目特点
 
-* 基于 Qt Widgets 实现二维自动驾驶仿真界面
-* 使用 QThread 与 Qt Signal/Slot 实现后台数据处理和跨线程通信
-* 支持 C++ 仿真程序与 Python Planner 通过 TCP/JSON 通信
-* 支持障碍物检测、轨迹规划与车辆控制闭环
-* 支持双误差控制与 Pure Pursuit 两种横向控制方式
-* 支持纵向速度控制、TTC 计算和简化紧急制动
-* 支持最近仿真帧的内存记录和时间轴回放
-* 支持 INI 配置文件读取与保存
-* 支持命令行配置文件参数
-* 使用 Linux syslog 记录运行日志
-* 使用 sigaction 处理 SIGINT / SIGTERM，并执行统一退出流程
+- 基于 Qt Widgets 的二维仿真界面
+- 使用 QThread 与 Qt Signal/Slot 处理后台数据和跨线程通信
+- C++ 仿真程序与 Python Planner 通过 TCP/JSON 通信（换行分帧）
+- 障碍物检测、轨迹规划与车辆控制闭环
+- Dual Error 与 Pure Pursuit 两种横向控制
+- 纵向速度控制、TTC 计算和简化紧急制动
+- 仿真帧记录与回放
+- INI 配置文件，可用命令行指定路径
+- Linux syslog 运行日志
+- sigaction 处理 SIGINT / SIGTERM，统一退出
+- `--headless` 无界面运行（QCoreApplication，不创建主窗口）
+- `-s` / `--scenario` 加载 `scenarios/` 下的 JSON 场景
+- 仿真步进位于 `SimulationEngine`，GUI 与 headless 共用
+
+`--test` 已出现在 `--help` 中，自动评估退出码将在 v2.9 接通。
 
 ---
 
-# 技术栈
+## 技术栈
 
-## 开发语言
-
-* C++17
-* Python 3
-
-## GUI
-
-* Qt Widgets
-* Qt Signal/Slot
-
-## 多线程
-
-* QThread
-* QObject::moveToThread
-* Queued Connection
-* BlockingQueuedConnection
-
-## 构建系统
-
-* CMake 3.16+
-* Debug / Release 独立构建
-* CMake install
-
-## 网络通信
-
-* TCP/IP
-* QTcpServer
-* QTcpSocket
-* JSON
-* 换行符消息分帧
-
-## Linux
-
-* syslog
-* sigaction
-* SIGINT
-* SIGTERM
-* ELF 可执行程序
-* Linux 动态库依赖检查
-
-## 配置管理
-
-* QSettings
-* INI 配置文件
-* QCommandLineParser
+- 语言：C++17、Python 3
+- GUI：Qt Widgets、Signal/Slot
+- 多线程：QThread、moveToThread、Queued Connection
+- 构建：CMake 3.16+，Debug / Release，CMake install
+- 网络：TCP/IP、QTcpServer、QTcpSocket、JSON 行协议
+- Linux：syslog、sigaction、SIGINT、SIGTERM
+- 配置：QSettings、INI、QCommandLineParser
 
 ---
 
-# 当前项目目录
+## 仓库结构
 
-```text
+```
 ADASim/
 ├── CMakeLists.txt
+├── LICENSE
 ├── README.md
 ├── cmake/
 │   └── Version.h.in
 ├── config/
 │   └── adasim.ini
+├── scenarios/
+│   ├── empty.json
+│   ├── multi_obstacle.json
+│   └── straight_obstacle.json
 ├── src/
-│   ├── algorithm/
-│   │   ├── LongitudinalController
-│   │   ├── ObstacleDetector
-│   │   ├── PathPredictor
-│   │   ├── PurePursuitController
-│   │   ├── TrajectoryController
-│   │   └── VehicleModel
-│   ├── backend/
-│   │   ├── DataLoader
-│   │   ├── DataManager
-│   │   └── SimulationRecorder
-│   ├── communication/
-│   │   └── Socket
+│   ├── algorithm/          # 车模与横纵向控制
+│   ├── backend/            # DataLoader / DataManager / Recorder / SimulationEngine
+│   ├── communication/      # TCP Server
 │   ├── config/
-│   │   └── ConfigManager
 │   ├── gui/
-│   │   ├── MainWindow
-│   │   ├── View2D
-│   │   ├── SensorView
-│   │   └── ControlMonitor
-│   ├── system/
-│   │   ├── LinuxLogger
-│   │   └── LinuxSignalHandler
+│   ├── headless/           # HeadlessRunner
+│   ├── scenario/           # ScenarioLoader
+│   ├── system/             # syslog、信号
+│   ├── test/               # 仿真评分（不是单元测试）
 │   └── main.cpp
 └── tools/
     └── python_planner.py
@@ -117,91 +76,52 @@ ADASim/
 
 ---
 
-# 当前运行架构
+## 运行架构
 
-```text
-                QThread
-                   │
-          ┌────────┴────────┐
-          │                 │
-     DataLoader        DataManager
-          │                 │
-          │ simulationTick  │
-          ▼                 │
-      MainWindow            │
-          │                 │
-          ├─ VehicleModel   │
-          ├─ 横向控制器      │
-          ├─ 纵向控制器      │
-          └─ Recorder       │
-          │                 │
-          │ simulationFrame │
-          └────────────────►│
-                            │
-                     ObstacleDetector
-                            │
-                            ▼
-                       SocketServer
-                            │
-                         TCP/JSON
-                            │
-                            ▼
-                     Python Planner
+```
+GUI 模式:
+  QApplication -> MainWindow -> SimulationEngine
+                                 -> 车模 / 横向控制 / 纵向控制 / Recorder
+  DataLoader(QThread) 提供 tick
+  SocketServer <--TCP/JSON--> tools/python_planner.py
+
+Headless 模式:
+  QCoreApplication -> HeadlessRunner -> SimulationEngine
+  同样的 tick / 控制 / 记录
+  SIGINT / SIGTERM -> LinuxSignalHandler -> 统一退出
 ```
 
-当前版本中主仿真控制流程仍位于 `MainWindow`，后续版本将进一步进行 GUI 与仿真核心逻辑解耦。
+v2.3 起仿真核心已放到 `SimulationEngine`。v2.4 起支持 `--headless`。
 
 ---
 
-# C++ 与 Python Planner 通信
+## 命令行
 
-ADASim 作为 TCP Server，Python Planner 作为 TCP Client。
-
-默认监听：
-
-```text
-127.0.0.1:8080
+```
+./ADASim --help
+./ADASim --version
+./ADASim --config config/adasim.ini
+./ADASim --headless
+./ADASim --headless --scenario scenarios/empty.json
+./ADASim --headless --scenario scenarios/straight_obstacle.json
 ```
 
-C++ 向 Python 发送障碍物消息：
+常用选项：
 
-```json
-{
-    "type": "OBSTACLES",
-    "data": [
-        {
-            "local_x": 20.0,
-            "local_y": 0.0,
-            "dist": 20.0
-        }
-    ]
-}
-```
+- `-c` / `--config`  配置文件路径，默认是程序目录下的 `config/adasim.ini`
+- `--headless`       无界面运行
+- `-s` / `--scenario` 场景 JSON
+- `--help` / `--version`
 
-Python Planner 返回：
-
-```json
-{
-    "type": "CONTROL",
-    "steer_offset": 1.75
-}
-```
-
-当前通信协议规定每条 JSON 消息以换行符结束。
+对应实现见 `src/main.cpp`。
 
 ---
 
-# 配置文件
+## 配置文件
 
-默认配置文件：
+默认路径：`config/adasim.ini`
 
-```text
-config/adasim.ini
 ```
-
-当前配置包含：
-
-```ini
 [controller]
 heading_k=1
 lateral_k=1.5
@@ -216,88 +136,112 @@ planning_distance=20
 target_speed=8
 ```
 
-程序也支持通过命令行指定配置文件：
+指定配置：
 
-```bash
+```
 ./ADASim --config /path/to/adasim.ini
 ```
 
 ---
 
-# Debug 构建
+## C++ 与 Python Planner 通信
 
-```bash
-cmake -S . \
-      -B build-debug \
-      -DCMAKE_BUILD_TYPE=Debug
+ADASim 作为 TCP Server，Python Planner 作为 TCP Client。
 
+默认监听：`127.0.0.1:8080`
+
+每条 JSON 以换行符结束。
+
+C++ 发出的障碍物消息示例：
+
+```
+{
+    "type": "OBSTACLES",
+    "data": [
+        {
+            "local_x": 20.0,
+            "local_y": 0.0,
+            "dist": 20.0
+        }
+    ]
+}
+```
+
+Python Planner 返回示例：
+
+```
+{
+    "type": "CONTROL",
+    "steer_offset": 1.75
+}
+```
+
+---
+
+## 构建
+
+### Debug
+
+```
+cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug
 cmake --build build-debug -j$(nproc)
 ```
 
 运行：
 
-```bash
-./build-debug/ADASim
 ```
-
-查看版本：
-
-```bash
+./build-debug/ADASim
+./build-debug/ADASim --help
 ./build-debug/ADASim --version
 ```
 
-查看帮助：
+### Release
 
-```bash
-./build-debug/ADASim --help
 ```
-
----
-
-# Release 构建
-
-```bash
-cmake -S . \
-      -B build-release \
-      -DCMAKE_BUILD_TYPE=Release
-
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release
 cmake --build build-release -j$(nproc)
 ```
 
----
+### 三分钟验证
 
-# 运行 Python Planner
-
-首先启动 ADASim：
-
-```bash
-./build-debug/ADASim
+```
+cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug
+cmake --build build-debug -j$(nproc)
+./build-debug/ADASim --version
+./build-debug/ADASim --headless --scenario scenarios/empty.json
 ```
 
-然后启动：
+`--version` 应为 `2.8.0`。
 
-```bash
+依赖：CMake 3.16+、Qt5 或 Qt6（Core / Gui / Widgets / Network）、C++17 编译器。
+
+---
+
+## 运行 Python Planner
+
+先启动 ADASim，再启动 Planner：
+
+```
+./build-debug/ADASim
 python3 tools/python_planner.py
 ```
 
-默认情况下，ADASim 与 Python Planner 都使用 TCP 端口 `8080`。
-
-如果修改 `adasim.ini` 中的 Planner 端口，需要保证 Python Planner 使用的端口与 ADASim 一致。
+两端必须使用同一端口，默认 `8080`。若修改 `adasim.ini` 里的 `planner_port`，Python 脚本也要改成相同端口。
 
 ---
 
-# 安装测试
+## 安装测试
 
-可以在不修改系统目录的情况下测试 CMake install：
+不写入系统目录的本地安装：
 
-```bash
-cmake --install build-release \
-      --prefix "$PWD/install"
+```
+cmake --install build-release --prefix "$PWD/install"
+./install/bin/ADASim
 ```
 
 安装后结构：
 
-```text
+```
 install/
 └── bin/
     ├── ADASim
@@ -305,88 +249,54 @@ install/
         └── adasim.ini
 ```
 
-运行：
-
-```bash
-./install/bin/ADASim
-```
-
 ---
 
-# Linux 调试与检查
+## Linux 检查命令
 
-查看 ELF 文件信息：
-
-```bash
+```
 file build-debug/ADASim
-```
-
-查看动态库依赖：
-
-```bash
 ldd build-debug/ADASim
-```
-
-查看 ELF Header：
-
-```bash
 readelf -h build-debug/ADASim
 ```
 
 ---
 
-# 当前主要模块
+## 主要模块
 
-### DataLoader
-
-使用 QTimer 以固定周期产生仿真 Tick，并运行在后台 QThread 中。
-
-### DataManager
-
-负责车辆状态、点云数据、障碍物检测结果以及 Planner 消息之间的数据流转。
-
-### ObstacleDetector
-
-根据点云数据检测障碍物。
-
-### VehicleModel
-
-实现简化车辆运动模型。
-
-### TrajectoryController
-
-根据横向误差和航向误差计算车辆转向控制量。
-
-### PurePursuitController
-
-实现 Pure Pursuit 横向控制。
-
-### LongitudinalController
-
-负责目标速度、前方障碍物距离、TTC 和简化紧急制动控制。
-
-### SimulationRecorder
-
-在内存中保存最近的仿真帧，用于 GUI 时间轴回放。
-
-### SocketServer
-
-基于 QTcpServer / QTcpSocket 实现 ADASim 与 Python Planner 的 TCP 通信。
-
-### ConfigManager
-
-通过 QSettings 读取和保存 INI 参数。
-
-### LinuxLogger
-
-在 Linux 环境下使用 syslog 输出程序运行日志。
-
-### LinuxSignalHandler
-
-使用 sigaction 接收 SIGINT / SIGTERM，并通过 Qt 事件循环触发安全退出流程。
+- **DataLoader**：QTimer 按周期产生仿真 Tick，跑在后台 QThread
+- **DataManager**：车辆状态、点云、障碍物、Planner 消息流转
+- **ObstacleDetector**：根据点云检测障碍物
+- **VehicleModel**：简化车辆运动模型
+- **TrajectoryController**：按横向误差和航向误差计算转向
+- **PurePursuitController**：Pure Pursuit 横向控制
+- **LongitudinalController**：目标速度、前方距离、TTC、简化紧急制动
+- **SimulationEngine**：仿真步进、控制、记录，GUI 与 headless 共用
+- **SimulationRecorder**：仿真帧记录与回放
+- **HeadlessRunner**：无窗口启动、运行和收尾
+- **ScenarioLoader**：读取 `scenarios/*.json`
+- **SocketServer**：QTcpServer / QTcpSocket，与 Python Planner 通信
+- **ConfigManager**：QSettings 读写 INI
+- **LinuxLogger**：Linux 下 syslog
+- **LinuxSignalHandler**：sigaction 接收 SIGINT / SIGTERM，经 Qt 事件循环安全退出
+- **TestEvaluator**（`src/test/`）：仿真结果评分，不是单元测试框架
 
 ---
 
-# 后续计划
+## 场景文件
 
-V2.3 将重点进行仿真核心逻辑重构，把当前位于 MainWindow 中的车辆模型、控制、仿真状态推进等逻辑逐步拆分到独立 SimulationEngine 中，为后续 Headless 模式和 Linux 后台运行打基础。
+- `scenarios/empty.json`
+- `scenarios/straight_obstacle.json`
+- `scenarios/multi_obstacle.json`
+
+---
+
+## 后续计划
+
+- **v2.9**：接通 `--test` 退出码、GTest、CI
+- **v3.0**：通信健壮性、POSIX/UDS、systemd
+
+---
+
+## 许可证
+
+本项目使用 MIT License，见根目录 `LICENSE`。

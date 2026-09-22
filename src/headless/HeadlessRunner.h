@@ -70,7 +70,7 @@ private:
 
     void printTestResult();
 
-    void saveTestReport(const TestResult &result);
+    bool saveTestReport(const TestResult &result);
 
 private:
     QString configPath_;

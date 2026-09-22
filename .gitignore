@@ -47,3 +47,12 @@ compile_commands.json
 # =========================
 .DS_Store
 Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.user
+*.user.*
+
+# 运行时产出
+record/

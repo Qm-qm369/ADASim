@@ -557,46 +557,33 @@ void HeadlessRunner::printTestResult()
         << "==========================";
 }
 
-void HeadlessRunner::saveTestReport(
-    const TestResult &result)
+bool HeadlessRunner::saveTestReport(const TestResult &result)
 {
-
-    QFile file(
-        "test_result/report.txt");
-
-    if (!file.open(
-            QIODevice::WriteOnly |
-            QIODevice::Text))
+    if (!QDir().mkpath("test_result"))
     {
-        return;
+        qCritical() << "[TEST] Cannot create test_result directory";
+        return false;
+    }
+
+    QFile file("test_result/report.txt");
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        qCritical() << "[TEST] Cannot open report:" << file.errorString();
+        return false;
     }
 
     QTextStream out(&file);
+    out << "ADASim Test Report\n\n"
+        << "PASS:" << result.passed << "\n"
+        << "AEB:" << result.aebTriggered << "\n"
+        << "Collision:" << result.collision << "\n"
+        << "Min TTC:" << result.minTtc << "\n";
 
-    out
-        << "ADASim Test Report\n\n";
-
-    out
-        << "PASS:"
-        << result.passed
-        << "\n";
-
-    out
-        << "AEB:"
-        << result.aebTriggered
-        << "\n";
-
-    out
-        << "Collision:"
-        << result.collision
-        << "\n";
-
-    out
-        << "Min TTC:"
-        << result.minTtc
-        << "\n";
-
+    out.flush();
+    const bool flushed = file.flush();
+    const bool saved = out.status() == QTextStream::Ok && flushed;
     file.close();
+    return saved;
 }
 
 void HeadlessRunner::finishTest()

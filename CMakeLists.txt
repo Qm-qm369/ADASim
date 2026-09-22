@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(ADASim VERSION 2.7.0 LANGUAGES CXX)
+project(ADASim VERSION 2.8.0 LANGUAGES CXX)
 
 include(GNUInstallDirs) #提供标准 Linux 安装目录变量
 
@@ -119,6 +119,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/src/config
     ${CMAKE_SOURCE_DIR}/src/communication
     ${CMAKE_SOURCE_DIR}/src/algorithm
+    ${CMAKE_SOURCE_DIR}/src/test
 )
 
 # ============================================================
@@ -155,9 +156,3 @@ install(
     DESTINATION
     ${CMAKE_INSTALL_BINDIR}/config
 )
-
-include(CTest)
-
-if(BUILD_TESTING)
-    add_subdirectory(tests)
-endif()
