@@ -4,6 +4,10 @@
 
 基于 **C++17 / Qt / Linux** 开发的自动驾驶算法仿真平台。
 
+# ADASim
+
+![Build and Test](https://github.com/Qm-qm369/ADASim/actions/workflows/build-and-test.yml/badge.svg)
+
 ADASim 用于学习和验证自动驾驶基础算法，实现从传感器数据生成、障碍物检测、路径规划、车辆控制到 Qt 可视化的基础闭环仿真。仿真核心已从界面中拆出，支持图形界面和无界面两种运行方式。
 
 当前版本：**v2.8.0**

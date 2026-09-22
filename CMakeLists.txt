@@ -23,7 +23,8 @@ find_package(QT
             Core 
             Gui 
             Widgets
-            Network)
+            Network
+            Test)
 
 find_package(
             Qt${QT_VERSION_MAJOR}
@@ -32,6 +33,7 @@ find_package(
             Gui
             Widgets
             Network
+            Test
 )
 
 configure_file(
@@ -100,6 +102,12 @@ endif()
 add_executable(${PROJECT_NAME}
     ${PROJECT_SOURCES}
 )
+
+include(CTest)
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
 
 # 链接第三方库
 target_link_libraries(${PROJECT_NAME} PRIVATE
