@@ -75,6 +75,8 @@ set(PROJECT_SOURCES
     src/scenario/ScenarioLoader.cpp
 
     src/test/TestEvaluator.cpp
+    src/test/TestSuite.cpp
+    src/test/TestSuiteRunner.cpp
 )
 
 # ==========================================

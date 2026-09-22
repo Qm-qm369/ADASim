@@ -35,9 +35,6 @@ public:
     void setTestMode(
         bool enable);
 
-    AebExpectation aebExpectation_ =
-        AebExpectation::Any;
-
     void finishTest();
 
 public slots:
@@ -68,7 +65,12 @@ private:
 
     void shutdown();
 
-    bool saveTestReport(const TestResult &result);
+    bool saveTestReport(
+        const QString &scenarioName,
+        const ScenarioTestConfig &testConfig,
+        const TestResult &result);
+
+    void applyScenarioTestConfig();
 
 private:
     QString configPath_;
@@ -97,9 +99,12 @@ private:
     int frameCounter_ = 0;
 
     bool testMode_ = false;
+    bool testFinished_ = false;
+
+    AebExpectation testAebExpectation_ =
+        AebExpectation::Any;
 
     int maxTestFrames_ = 200;
-    bool testFinished_ = false;
 };
 
 #endif

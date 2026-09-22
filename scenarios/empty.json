@@ -1,4 +1,8 @@
 {
     "name": "empty",
-    "obstacles": []
+    "obstacles": [],
+    "test": {
+        "max_frames": 100,
+        "aeb_expectation": "Forbidden"
+    }
 }

@@ -5,6 +5,16 @@
 #include <QVector>
 #include <QPointF>
 
+#include "TestEvaluator.h"
+
+struct ScenarioTestConfig
+{
+    int maxFrames = 200;
+
+    AebExpectation aebExpectation =
+        AebExpectation::Any;
+};
+
 // V2.5 新增：
 // 表示已经从 JSON 文件解析完成的一份仿真场景。
 struct Scenario
@@ -14,6 +24,8 @@ struct Scenario
 
     // 静态障碍物的世界坐标
     QVector<QPointF> obstacles;
+
+    ScenarioTestConfig test;
 };
 
 class ScenarioLoader

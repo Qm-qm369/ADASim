@@ -13,6 +13,8 @@
 #include "communication/Socket.h"
 #include "system/LinuxLogger.h"
 
+static QString aebExpectationToString(AebExpectation expectation);
+
 // 启动一个无界面模式的 ADASim，把配置、数据时钟、数据管理、仿真核心、TCP 网络这些后台模块创建起来并连接好。
 HeadlessRunner::HeadlessRunner(
     const QString &configPath,
@@ -146,16 +148,27 @@ bool HeadlessRunner::loadConfig()
     }
 }
 
+void HeadlessRunner::applyScenarioTestConfig()
+{
+    if (scenarioPath_.isEmpty())
+    {
+        testAebExpectation_ = AebExpectation::Any;
+        maxTestFrames_ = 200;
+        return;
+    }
+
+    testAebExpectation_ = scenario_.test.aebExpectation;
+    maxTestFrames_ = scenario_.test.maxFrames;
+}
+
 bool HeadlessRunner::loadScenario()
 {
     // 没有指定scenario
     // 保持V2.4行为
     if (scenarioPath_.isEmpty())
     {
-        qInfo()
-            << "[SCENARIO]"
-            << "No scenario specified";
-
+        qInfo() << "[SCENARIO]" << "No scenario specified";
+        applyScenarioTestConfig();
         return true;
     }
 
@@ -203,6 +216,16 @@ bool HeadlessRunner::loadScenario()
     }
 
     scenarioLoaded_ = true;
+
+    applyScenarioTestConfig();
+
+    qInfo() << "[TEST] max_frames:" << maxTestFrames_
+            << "aeb_expectation:"
+            << (testAebExpectation_ == AebExpectation::Required
+                    ? "Required"
+                : testAebExpectation_ == AebExpectation::Forbidden
+                    ? "Forbidden"
+                    : "Any");
 
     return true;
 }
@@ -540,56 +563,104 @@ void HeadlessRunner::setTestMode(
     testMode_ = enable;
 }
 
-bool HeadlessRunner::saveTestReport(const TestResult &result)
+bool HeadlessRunner::saveTestReport(
+    const QString &scenarioName,
+    const ScenarioTestConfig &testConfig,
+    const TestResult &result)
 {
-    if (!QDir().mkpath("test_result")) // 在当前工作目录下创建 test_result，父目录不存在也会一起建。
+    if (!QDir().mkpath("test_result"))
     {
-        qCritical() << "[TEST] Cannot create test_result directory"; // qCritical() 是 Qt 的严重错误日志宏，用来打印已经出错、但程序通常还能继续的信息
+        qCritical()
+            << "[TEST] Cannot create test_result directory";
+
         return false;
     }
 
-    QSaveFile file("test_result/report.txt"); // QSaveFile 不是直接改原文件，而是先写临时文件，最后 commit() 再原子替换
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    QSaveFile file(
+        "test_result/report.txt");
+
+    if (!file.open(
+            QIODevice::WriteOnly |
+            QIODevice::Text))
     {
-        qCritical() << "[TEST] Cannot open report:" << file.errorString();
+        qCritical()
+            << "[TEST] Cannot open report:"
+            << file.errorString();
+
         return false;
     }
 
-    QTextStream out(&file); // 写入报告内容
+    QTextStream out(&file);
+
     out << "ADASim Test Report\n\n"
-        << "PASS:" << result.passed << "\n"
-        << "Frames:" << result.frameCount << "\n"
-        << "AEB:" << result.aebTriggered << "\n"
-        << "Collision:" << result.collision << "\n"
-        << "Min TTC:" << result.minTtc << "\n";
+        << "Scenario:"
+        << scenarioName
+        << "\n"
+        << "Expected AEB:"
+        << aebExpectationToString(
+               testConfig.aebExpectation)
+        << "\n"
+        << "Max Frames:"
+        << testConfig.maxFrames
+        << "\n"
+        << "Actual Frames:"
+        << result.frameCount
+        << "\n"
+        << "PASS:"
+        << result.passed
+        << "\n"
+        << "AEB:"
+        << result.aebTriggered
+        << "\n"
+        << "Collision:"
+        << result.collision
+        << "\n"
+        << "Min TTC:"
+        << result.minTtc
+        << "\n";
 
-    out.flush(); // flush() 把缓冲区刷下去。 检查写入是否成功
+    out.flush();
+
     if (out.status() != QTextStream::Ok)
     {
-        qCritical() << "[TEST] Cannot write report:" << file.errorString();
+        qCritical()
+            << "[TEST] Cannot write report:"
+            << file.errorString();
+
         file.cancelWriting();
         return false;
     }
 
-    if (!file.commit()) // commit() 把临时文件替换成 test_result/report.txt
+    if (!file.commit())
     {
-        qCritical() << "[TEST] Cannot commit report:" << file.errorString();
+        qCritical()
+            << "[TEST] Cannot commit report:"
+            << file.errorString();
+
         return false;
     }
 
-    qInfo().noquote() << "[TEST] Report saved:"
-                      << QDir().absoluteFilePath("test_result/report.txt");
     return true;
 }
 
 void HeadlessRunner::finishTest()
 {
-    if (shutdownStarted_) // 1. 防止重复收尾
+    if (shutdownStarted_)
         return;
 
     const TestResult result =
-        simulationEngine_->testResult(aebExpectation_);
-    const bool reportSaved = saveTestReport(result);
+        simulationEngine_->testResult(testAebExpectation_);
+
+    ScenarioTestConfig testConfig;
+    testConfig.maxFrames = maxTestFrames_;
+    testConfig.aebExpectation = testAebExpectation_;
+
+    const QString scenarioName =
+        scenarioPath_.isEmpty() ? QStringLiteral("default")
+                                : scenario_.name;
+
+    const bool reportSaved =
+        saveTestReport(scenarioName, testConfig, result);
 
     shutdown();
 
@@ -603,4 +674,22 @@ void HeadlessRunner::finishTest()
         qInfo() << "[TEST]" << (result.passed ? "PASS" : "FAIL");
         QCoreApplication::exit(result.passed ? 0 : 1);
     }
+}
+
+static QString aebExpectationToString(
+    AebExpectation expectation)
+{
+    switch (expectation)
+    {
+    case AebExpectation::Any:
+        return "Any";
+
+    case AebExpectation::Required:
+        return "Required";
+
+    case AebExpectation::Forbidden:
+        return "Forbidden";
+    }
+
+    return "Unknown";
 }

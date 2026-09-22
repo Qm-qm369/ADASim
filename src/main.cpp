@@ -11,6 +11,7 @@
 #include "headless/HeadlessRunner.h"
 #include "system/LinuxSignalHandler.h"
 #include "Version.h"
+#include "test/TestSuiteRunner.h"
 
 // 在创建 QApplication / QCoreApplication 之前
 // 先判断用户有没有传 --headless。
@@ -49,9 +50,15 @@ int main(
     {
         for (int i = 1; i < argc; ++i)
         {
-            if (QString::fromLocal8Bit(argv[i]) == "--test")
+            const QString arg = QString::fromLocal8Bit(argv[i]);
+            if (arg == "--test")
             {
                 qCritical() << "--test requires --headless";
+                return 2;
+            }
+            if (arg == "--suite")
+            {
+                qCritical() << "--suite requires --headless";
                 return 2;
             }
         }
@@ -143,6 +150,12 @@ int main(
     parser.addOption(
         scenarioOption);
 
+    QCommandLineOption suiteOption(
+        QStringList() << "suite",
+        "Run a test suite",
+        "file");
+    parser.addOption(suiteOption);
+
     // 正式解析命令行
     parser.process(
         *app);
@@ -152,16 +165,21 @@ int main(
 
     if (parser.isSet(scenarioOption))
     {
-        scenarioPath =
-            parser.value(
-                scenarioOption);
+        scenarioPath = parser.value(scenarioOption);
     }
 
     QString configPath = parser.value(configOption);
 
-    bool headlessMode =
-        parser.isSet(
-            headlessOption);
+    bool headlessMode = parser.isSet(headlessOption);
+
+    const bool suiteMode = parser.isSet(suiteOption);
+    const QString suitePath = parser.value(suiteOption);
+
+    if (suiteMode && parser.isSet(scenarioOption))
+    {
+        qCritical() << "--suite cannot be used with --scenario";
+        return 2;
+    }
 
     QString dataPath;
 
@@ -179,6 +197,12 @@ int main(
 
     if (headlessMode)
     {
+        if (suiteMode)
+        {
+            TestSuiteRunner suiteRunner(configPath);
+            return suiteRunner.run(suitePath);
+        }
+
         HeadlessRunner runner(
             configPath,
             dataPath,
@@ -194,15 +218,11 @@ int main(
 
         if (!runner.initialize())
         {
-            qCritical()
-                << "ADASim initialization failed";
-
+            qCritical() << "ADASim initialization failed";
             return 2;
         }
 
         runner.start();
-
-        // 进入 Qt 事件循环。
         return app->exec();
     }
 

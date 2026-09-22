@@ -35,6 +35,62 @@ QPointF(x, y)
 Scenario
 */
 
+// 用 static 只给本文件用，不必写进头文件。
+static bool parseAebExpectation(
+    const QString &value,
+    AebExpectation &expectation,
+    QString &errorMessage)
+{
+    if (value == "Any")
+    {
+        expectation = AebExpectation::Any;
+        return true;
+    }
+
+    if (value == "Required")
+    {
+        expectation = AebExpectation::Required;
+        return true;
+    }
+
+    if (value == "Forbidden")
+    {
+        expectation = AebExpectation::Forbidden;
+        return true;
+    }
+
+    errorMessage =
+        QString("Invalid aeb_expectation: %1")
+            .arg(value);
+
+    return false;
+}
+
+static bool validateScenario(
+    const Scenario &scenario,
+    QString &errorMessage)
+{
+    if (scenario.name.trimmed().isEmpty())
+    {
+        errorMessage = "Scenario name cannot be empty";
+        return false;
+    }
+
+    if (scenario.test.maxFrames <= 0)
+    {
+        errorMessage = "Scenario max_frames must be positive";
+        return false;
+    }
+
+    if (scenario.test.maxFrames > 1000000)
+    {
+        errorMessage = "Scenario max_frames is out of range";
+        return false;
+    }
+
+    return true;
+}
+
 bool ScenarioLoader::load(
     const QString &filePath,
     Scenario &scenario,
@@ -239,16 +295,80 @@ bool ScenarioLoader::load(
     }
 
     // ==========================================
+    // 8.5 解析可选的 test 配置
+    // ==========================================
+
+    ScenarioTestConfig testConfig;
+
+    if (root.contains("test"))
+    {
+        if (!root.value("test").isObject())
+        {
+            errorMessage =
+                "Scenario field 'test' must be an object";
+            return false;
+        }
+
+        const QJsonObject testObject =
+            root.value("test").toObject();
+
+        if (testObject.contains("max_frames"))
+        {
+            if (!testObject.value("max_frames").isDouble())
+            {
+                errorMessage =
+                    "Scenario field 'test.max_frames' must be a number";
+                return false;
+            }
+
+            const int maxFrames =
+                testObject.value("max_frames").toInt();
+
+            if (maxFrames <= 0 || maxFrames > 1000000)
+            {
+                errorMessage =
+                    "Scenario field 'test.max_frames' is out of range";
+                return false;
+            }
+
+            testConfig.maxFrames = maxFrames;
+        }
+
+        if (testObject.contains("aeb_expectation"))
+        {
+            if (!testObject.value("aeb_expectation").isString())
+            {
+                errorMessage =
+                    "Scenario field 'test.aeb_expectation' must be a string";
+                return false;
+            }
+
+            const QString expectationText =
+                testObject.value("aeb_expectation").toString();
+
+            if (!parseAebExpectation(
+                    expectationText,
+                    testConfig.aebExpectation,
+                    errorMessage))
+            {
+                return false;
+            }
+        }
+    }
+
+    // ==========================================
     // 9. 所有检查通过以后再更新输出
     // ==========================================
 
-    scenario.name =
-        scenarioName;
+    Scenario loaded;
+    loaded.name = scenarioName;
+    loaded.obstacles = obstacles;
+    loaded.test = testConfig;
 
-    scenario.obstacles =
-        obstacles;
+    if (!validateScenario(loaded, errorMessage))
+        return false;
 
+    scenario = loaded;
     errorMessage.clear();
-
     return true;
 }
