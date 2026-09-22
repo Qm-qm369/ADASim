@@ -145,7 +145,11 @@ void MainWindow::stopBackend()
         backendThread_->quit();
 
         // 等待后台线程真正结束
-        backendThread_->wait(2000);
+        if (!backendThread_->wait(2000))
+        {
+            qWarning() << "[THREAD] Still stopping; waiting for cleanup";
+            backendThread_->wait();
+        }
     }
 }
 
@@ -322,6 +326,9 @@ void MainWindow::setupConnections()
                 LinuxLogger::warning( message);
 
                 statusBar()->showMessage(QString("Planner消息异常：%1").arg(message)); });
+
+    connect(this, &MainWindow::pauseEngineRequested,
+            simulationEngine_, &SimulationEngine::pause);
 }
 
 void MainWindow::onStartSimulation()
@@ -336,10 +343,10 @@ void MainWindow::onStartSimulation()
 
 void MainWindow::onPauseSimulation()
 {
+    emit pauseEngineRequested();
+
     QMetaObject::invokeMethod(
-        dataLoader_,
-        "pause",
-        Qt::QueuedConnection);
+        dataLoader_, "pause", Qt::QueuedConnection);
 }
 
 void MainWindow::onStopSimulation()
@@ -885,13 +892,8 @@ void MainWindow::saveConfig()
 void MainWindow::onReplayFrameSelected(
     int index)
 {
-    QMetaObject::invokeMethod(
-        dataLoader_,
-        "pause",
-        Qt::QueuedConnection);
-
-    emit replayFrameRequested(
-        index);
+    onPauseSimulation();
+    emit replayFrameRequested(index);
 }
 
 void MainWindow::shutdownApplication()
@@ -905,6 +907,8 @@ void MainWindow::shutdownApplication()
     shutdownStarted_ = true;
 
     LinuxLogger::info("ADASim shutdown started");
+
+    simulationEngine_->stop();
 
     // 1. 保存当前配置
     saveConfig();

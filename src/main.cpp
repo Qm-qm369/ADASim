@@ -45,6 +45,18 @@ int main(
             argc,
             argv);
 
+    if (!useHeadlessApplication)
+    {
+        for (int i = 1; i < argc; ++i)
+        {
+            if (QString::fromLocal8Bit(argv[i]) == "--test")
+            {
+                qCritical() << "--test requires --headless";
+                return 2;
+            }
+        }
+    }
+
     std::unique_ptr<QCoreApplication> app; // 创建了一个智能指针
 
     // make_unique主要目的就是安全地创建 unique_ptr
@@ -185,7 +197,7 @@ int main(
             qCritical()
                 << "ADASim initialization failed";
 
-            return -1;
+            return 2;
         }
 
         runner.start();

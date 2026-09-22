@@ -6,6 +6,7 @@
 #include <QTextStream>
 #include <QDir>
 #include <QTimer>
+#include <QSaveFile>
 
 #include "backend/DataLoader.h"
 #include "backend/DataManager.h"
@@ -67,9 +68,6 @@ bool HeadlessRunner::initialize()
     simulationEngine_ =
         new SimulationEngine(this);
 
-    simulationEngine_->startRecording(
-        "record/simulation.csv");
-
     // 使用 INI 参数配置 Engine
     simulationEngine_->configure(
         appConfig_.targetSpeed,
@@ -95,7 +93,16 @@ bool HeadlessRunner::initialize()
         return false;
     }
 
-    setupNetwork();
+    if (!setupNetwork())
+    {
+        return false;
+    }
+
+    if (!simulationEngine_->startRecording("record/simulation.csv"))
+    {
+        qCritical() << "[INIT] Cannot start recording";
+        return false;
+    }
 
     LinuxLogger::info(
         "ADASim headless initialized");
@@ -133,6 +140,8 @@ bool HeadlessRunner::loadConfig()
     {
         LinuxLogger::warning(
             errorMessage);
+
+        qCritical().noquote() << "[CONFIG]" << errorMessage;
         return false;
     }
 }
@@ -329,8 +338,14 @@ void HeadlessRunner::setupConnections()
         });
 }
 
-void HeadlessRunner::setupNetwork()
+bool HeadlessRunner::setupNetwork()
 {
+    if (appConfig_.plannerPort < 1 || appConfig_.plannerPort > 65535)
+    {
+        qCritical() << "[NETWORK] Invalid port:" << appConfig_.plannerPort;
+        return false;
+    }
+
     bool success =
         socketServer_->startTcpServer(
             static_cast<quint16>(
@@ -358,6 +373,8 @@ void HeadlessRunner::setupNetwork()
             << "[NETWORK]"
             << "TCP Server start failed";
     }
+
+    return success;
 }
 
 void HeadlessRunner::start()
@@ -489,7 +506,15 @@ void HeadlessRunner::onTerminationRequested(
 
     shutdown();
 
-    QCoreApplication::quit();
+    if (testMode_)
+    {
+        qCritical() << "[TEST] Aborted before completion";
+        QCoreApplication::exit(2);
+    }
+    else
+    {
+        QCoreApplication::quit();
+    }
 }
 
 void HeadlessRunner::shutdown()
@@ -515,92 +540,67 @@ void HeadlessRunner::setTestMode(
     testMode_ = enable;
 }
 
-void HeadlessRunner::printTestResult()
-{
-    QDir dir(
-        "test_result");
-
-    if (!dir.exists())
-    {
-        dir.mkpath(".");
-    }
-
-    QFile file(
-        "test_result/report.txt");
-
-    if (!file.open(
-            QIODevice::WriteOnly |
-            QIODevice::Text))
-    {
-        return;
-    }
-
-    TestResult result =
-        simulationEngine_->testResult();
-
-    qInfo()
-        << "========== TEST ==========";
-
-    qInfo()
-        << "AEB:"
-        << result.aebTriggered;
-
-    qInfo()
-        << "Collision:"
-        << result.collision;
-
-    qInfo()
-        << "Min TTC:"
-        << result.minTtc;
-
-    qInfo()
-        << "==========================";
-}
-
 bool HeadlessRunner::saveTestReport(const TestResult &result)
 {
-    if (!QDir().mkpath("test_result"))
+    if (!QDir().mkpath("test_result")) // 在当前工作目录下创建 test_result，父目录不存在也会一起建。
     {
-        qCritical() << "[TEST] Cannot create test_result directory";
+        qCritical() << "[TEST] Cannot create test_result directory"; // qCritical() 是 Qt 的严重错误日志宏，用来打印已经出错、但程序通常还能继续的信息
         return false;
     }
 
-    QFile file("test_result/report.txt");
+    QSaveFile file("test_result/report.txt"); // QSaveFile 不是直接改原文件，而是先写临时文件，最后 commit() 再原子替换
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
     {
         qCritical() << "[TEST] Cannot open report:" << file.errorString();
         return false;
     }
 
-    QTextStream out(&file);
+    QTextStream out(&file); // 写入报告内容
     out << "ADASim Test Report\n\n"
         << "PASS:" << result.passed << "\n"
+        << "Frames:" << result.frameCount << "\n"
         << "AEB:" << result.aebTriggered << "\n"
         << "Collision:" << result.collision << "\n"
         << "Min TTC:" << result.minTtc << "\n";
 
-    out.flush();
-    const bool flushed = file.flush();
-    const bool saved = out.status() == QTextStream::Ok && flushed;
-    file.close();
-    return saved;
+    out.flush(); // flush() 把缓冲区刷下去。 检查写入是否成功
+    if (out.status() != QTextStream::Ok)
+    {
+        qCritical() << "[TEST] Cannot write report:" << file.errorString();
+        file.cancelWriting();
+        return false;
+    }
+
+    if (!file.commit()) // commit() 把临时文件替换成 test_result/report.txt
+    {
+        qCritical() << "[TEST] Cannot commit report:" << file.errorString();
+        return false;
+    }
+
+    qInfo().noquote() << "[TEST] Report saved:"
+                      << QDir().absoluteFilePath("test_result/report.txt");
+    return true;
 }
 
 void HeadlessRunner::finishTest()
 {
+    if (shutdownStarted_) // 1. 防止重复收尾
+        return;
+
     const TestResult result =
         simulationEngine_->testResult(aebExpectation_);
-
-    const bool reportSaved =
-        saveTestReport(result);
-
-    qInfo() << "[TEST]"
-            << (result.passed ? "PASS" : "FAIL");
+    const bool reportSaved = saveTestReport(result);
 
     shutdown();
 
     if (!reportSaved)
+    {
+        qCritical() << "[TEST] ERROR: report was not saved";
         QCoreApplication::exit(2);
+    }
     else
+    {
+        qInfo() << "[TEST]" << (result.passed ? "PASS" : "FAIL");
         QCoreApplication::exit(result.passed ? 0 : 1);
+    }
 }

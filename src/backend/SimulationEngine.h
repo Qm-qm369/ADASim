@@ -70,6 +70,8 @@ public slots:
 
     void start();
 
+    void pause();
+
     void stop();
 
     // 对应原来的 MainWindow::onSimulationTick()
@@ -163,6 +165,8 @@ private:
     double lookAheadDistance_ = 2.0;
 
     bool vehicleModelInitialized_ = false;
+
+    bool running_ = false;
 
     double targetVehicleSpeed_ = 5.0;
 

@@ -43,16 +43,15 @@ void SimulationEngine::configure(
 bool SimulationEngine::startRecording(
     const QString &filePath)
 {
-    testEvaluator_.reset();
-
     QFileInfo info(filePath);
 
     QDir dir =
         info.absoluteDir(); // 获取文件所在目录 absoluteDir() 获取绝对路径目录。
 
-    if (!dir.exists())
+    if (!dir.exists() && !dir.mkpath("."))
     {
-        dir.mkpath("."); // 创建当前这个 QDir 指向的目录。
+        qCritical() << "[Recorder] Cannot create directory:" << dir.absolutePath();
+        return false;
     }
 
     recordFilePath_ = filePath;
@@ -81,6 +80,8 @@ void SimulationEngine::start()
 {
     if (!vehicleModelInitialized_)
     {
+        testEvaluator_.reset();
+
         vehicleModel_.setState(
             0.0,
             0.0,
@@ -100,6 +101,7 @@ void SimulationEngine::start()
             state.y,
             state.yaw);
     }
+    running_ = true;
 
     LinuxLogger::info(
         QString("Simulation started, target speed=%1 m/s")
@@ -108,6 +110,8 @@ void SimulationEngine::start()
 
 void SimulationEngine::stop()
 {
+    running_ = false;
+
     totalDistance_ = 0.0;
 
     lastX_ = 0.0;
@@ -347,12 +351,10 @@ void SimulationEngine::startLateralPlan(
 void SimulationEngine::onSimulationTick(
     const QVector<QPointF> &points)
 {
-    if (!vehicleModelInitialized_ ||
-        replayMode_)
+    if (!running_ || !vehicleModelInitialized_ || replayMode_)
     {
         return;
     }
-
     VehicleState currentState = vehicleModel_.state();
 
     // ==========================================
@@ -649,4 +651,9 @@ TestResult SimulationEngine::testResult(
     AebExpectation expectation) const
 {
     return testEvaluator_.result(expectation);
+}
+
+void SimulationEngine::pause()
+{
+    running_ = false;
 }

@@ -64,11 +64,9 @@ private:
 
     void setupConnections();
 
-    void setupNetwork();
+    bool setupNetwork();
 
     void shutdown();
-
-    void printTestResult();
 
     bool saveTestReport(const TestResult &result);
 

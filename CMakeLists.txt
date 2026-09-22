@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(ADASim VERSION 2.8.0 LANGUAGES CXX)
+project(ADASim VERSION 2.8.1 LANGUAGES CXX)
 
 include(GNUInstallDirs) #提供标准 Linux 安装目录变量
 

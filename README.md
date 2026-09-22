@@ -28,7 +28,7 @@ ADASim 用于学习和验证自动驾驶基础算法，实现从传感器数据�
 - `-s` / `--scenario` 加载 `scenarios/` 下的 JSON 场景
 - 仿真步进位于 `SimulationEngine`，GUI 与 headless 共用
 
-`--test` 已出现在 `--help` 中，自动评估退出码将在 v2.9 接通。
+`--test` 已出现在 `--help` 中，已支持 `--headless --test`：默认执行 200 帧后输出 `test_result/report.txt`。退出码 0 表示评估通过且报告保存成功，1 表示评估未通过，2 表示运行错误或测试中断。默认 AEB 期望为 Any；命令行和场景文件尚不能设置 Required / Forbidden。GTest/Qt Test、CTest 和 CI 尚未接入。
 
 ---
 

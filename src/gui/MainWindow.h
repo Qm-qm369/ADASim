@@ -52,6 +52,8 @@ signals:
         double headingGain,
         double lateralGain);
 
+    void pauseEngineRequested();
+
 private:
     void setupUI();
 
