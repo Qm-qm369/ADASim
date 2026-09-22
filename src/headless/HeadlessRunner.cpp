@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QTextStream>
 #include <QDir>
+#include <QTimer>
 
 #include "backend/DataLoader.h"
 #include "backend/DataManager.h"
@@ -400,6 +401,18 @@ void HeadlessRunner::onSimulationFrameUpdated(
 
     ++frameCounter_;
 
+    if (testMode_ &&
+        frameCounter_ >= maxTestFrames_ &&
+        !testFinished_)
+    {
+        testFinished_ = true;
+
+        dataLoader_->pause();
+
+        QTimer::singleShot(0, this, [this]()
+                           { finishTest(); });
+    }
+
     // DataLoader是10Hz
     // 每10帧打印一次，大约每秒一次
     if (frameCounter_ % 10 != 0)
@@ -481,50 +494,19 @@ void HeadlessRunner::onTerminationRequested(
 
 void HeadlessRunner::shutdown()
 {
-    TestResult result =
-        simulationEngine_->testResult();
-
-    qInfo()
-        << "[TEST]"
-        << "AEB:"
-        << result.aebTriggered
-        << "Collision:"
-        << result.collision
-        << "Min TTC:"
-        << result.minTtc;
-
     if (shutdownStarted_)
-    {
         return;
-    }
 
     shutdownStarted_ = true;
 
-    LinuxLogger::info(
-        "ADASim headless shutdown started");
-
-    if (testMode_)
-    {
-        printTestResult();
-    }
-
     if (dataLoader_)
-    {
         dataLoader_->stop();
-    }
 
     if (simulationEngine_)
-    {
         simulationEngine_->stop();
-    }
 
     if (socketServer_)
-    {
         socketServer_->stop();
-    }
-
-    LinuxLogger::info(
-        "ADASim headless shutdown completed");
 }
 
 void HeadlessRunner::setTestMode(
@@ -615,4 +597,23 @@ void HeadlessRunner::saveTestReport(
         << "\n";
 
     file.close();
+}
+
+void HeadlessRunner::finishTest()
+{
+    const TestResult result =
+        simulationEngine_->testResult(aebExpectation_);
+
+    const bool reportSaved =
+        saveTestReport(result);
+
+    qInfo() << "[TEST]"
+            << (result.passed ? "PASS" : "FAIL");
+
+    shutdown();
+
+    if (!reportSaved)
+        QCoreApplication::exit(2);
+    else
+        QCoreApplication::exit(result.passed ? 0 : 1);
 }

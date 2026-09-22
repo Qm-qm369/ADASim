@@ -15,6 +15,8 @@ void TestEvaluator::processFrame(
     const SimulationFrame &frame)
 {
 
+    ++result_.frameCount;
+
     if (frame.emergencyBrake)
     {
         result_.aebTriggered = true;
@@ -46,14 +48,22 @@ void TestEvaluator::processFrame(
     }
 }
 
-TestResult TestEvaluator::result() const
+TestResult TestEvaluator::result(
+    AebExpectation expectation) const
 {
-    TestResult result =
-        result_;
+    TestResult result = result_;
+
+    bool aebMatches = true;
+
+    if (expectation == AebExpectation::Required)
+        aebMatches = result.aebTriggered;
+    else if (expectation == AebExpectation::Forbidden)
+        aebMatches = !result.aebTriggered;
 
     result.passed =
-        result_.aebTriggered &&
-        !result_.collision;
+        result.frameCount > 0 &&
+        !result.collision &&
+        aebMatches;
 
     return result;
 }

@@ -645,7 +645,8 @@ void SimulationEngine::requestReplayFrame(
         frame);
 }
 
-TestResult SimulationEngine::testResult() const
+TestResult SimulationEngine::testResult(
+    AebExpectation expectation) const
 {
-    return testEvaluator_.result();
+    return testEvaluator_.result(expectation);
 }

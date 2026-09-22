@@ -35,6 +35,11 @@ public:
     void setTestMode(
         bool enable);
 
+    AebExpectation aebExpectation_ =
+        AebExpectation::Any;
+
+    void finishTest();
+
 public slots:
 
     // LinuxSignalHandler 发来 SIGINT / SIGTERM 后执行
@@ -94,6 +99,9 @@ private:
     int frameCounter_ = 0;
 
     bool testMode_ = false;
+
+    int maxTestFrames_ = 200;
+    bool testFinished_ = false;
 };
 
 #endif

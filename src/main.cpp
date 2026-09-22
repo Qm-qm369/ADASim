@@ -81,9 +81,6 @@ int main(
 
     parser.addOption(testOption);
 
-    bool testMode =
-        parser.isSet(testOption);
-
     parser.setApplicationDescription(
         "ADASim autonomous driving simulator");
 
@@ -138,6 +135,9 @@ int main(
     parser.process(
         *app);
 
+    // 必须先解析，才能知道用户有没有传 --test。
+    const bool testMode = parser.isSet(testOption);
+
     if (parser.isSet(scenarioOption))
     {
         scenarioPath =
@@ -177,6 +177,8 @@ int main(
             &LinuxSignalHandler::terminationRequested,
             &runner,
             &HeadlessRunner::onTerminationRequested);
+
+        runner.setTestMode(testMode);
 
         if (!runner.initialize())
         {

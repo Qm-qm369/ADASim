@@ -31,7 +31,8 @@ public:
     bool startRecording(
         const QString &filePath);
 
-    TestResult testResult() const;
+    TestResult testResult(
+        AebExpectation expectation = AebExpectation::Any) const;
 
 signals:
 
