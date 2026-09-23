@@ -66,3 +66,19 @@ add_test(
 set_tests_properties(headless_empty_scenario PROPERTIES
     TIMEOUT 120
 )
+
+add_executable(test_socket_server
+    test_socket_server.cpp
+    ${CMAKE_SOURCE_DIR}/src/communication/Socket.cpp
+    ${CMAKE_SOURCE_DIR}/src/communication/Socket.h
+)
+target_include_directories(test_socket_server PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_link_libraries(test_socket_server PRIVATE
+    Qt${QT_VERSION_MAJOR}::Core
+    Qt${QT_VERSION_MAJOR}::Network
+    Qt${QT_VERSION_MAJOR}::Test
+)
+add_test(NAME test_socket_server COMMAND test_socket_server)
+set_tests_properties(test_socket_server PROPERTIES TIMEOUT 30)

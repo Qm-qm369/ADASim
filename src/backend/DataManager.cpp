@@ -325,7 +325,16 @@ void DataManager::onPlannerDataReceived(
         return;
     }
 
-    double offset = offsetValue.toDouble();
+    const double offset = offsetValue.toDouble();
+    constexpr double MaxPlannerOffsetMeters = 3.5;
+
+    if (!std::isfinite(offset) ||
+        std::abs(offset) > MaxPlannerOffsetMeters)
+    {
+        emit plannerMessageError(
+            "CONTROL steer_offset must be finite and within [-3.5, 3.5] m");
+        return;
+    }
 
     emit lateralControlReceived(offset);
 }
