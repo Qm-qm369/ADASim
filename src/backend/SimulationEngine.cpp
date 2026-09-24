@@ -4,7 +4,9 @@
 #include <QDebug>
 #include <QDir>
 #include <QFileInfo>
+#include <QUuid>
 
+#include "communication/PlannerClock.h"
 #include "system/LinuxLogger.h"
 
 SimulationEngine::SimulationEngine(
@@ -78,6 +80,11 @@ bool SimulationEngine::startRecording(
 
 void SimulationEngine::start()
 {
+    if (running_)
+        return;
+    plannerRunId_ = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    emit plannerRunChanged(plannerRunId_);
+
     if (!vehicleModelInitialized_)
     {
         testEvaluator_.reset();
@@ -111,6 +118,9 @@ void SimulationEngine::start()
 void SimulationEngine::stop()
 {
     running_ = false;
+
+    plannerRunId_.clear();
+    emit plannerRunChanged(QString());
 
     totalDistance_ = 0.0;
 
@@ -195,28 +205,6 @@ void SimulationEngine::onFrontObstacleDistanceUpdated(
 {
     frontObstacleDistance_ =
         distance;
-}
-
-// 搬 Planner 横向目标
-void SimulationEngine::onLateralControlReceived(
-    double offset)
-{
-    if (std::abs(
-            offset -
-            targetLateralOffset_) < 0.01)
-    {
-        return;
-    }
-
-    qDebug()
-        << "新的Lattice目标:"
-        << offset
-        << "当前offset:"
-        << currentLateralOffset_
-        << "当前X:"
-        << lastX_;
-
-    startLateralPlan(offset);
 }
 
 double SimulationEngine::calculatePlannedOffset(
@@ -554,7 +542,9 @@ void SimulationEngine::onSimulationTick(
         newState.x,
         newState.y,
         newState.yaw,
-        points);
+        points,
+        plannerRunId_,
+        plannerNowMs());
 
     // ==========================================
     // 保存 SimulationFrame
@@ -656,4 +646,11 @@ TestResult SimulationEngine::testResult(
 void SimulationEngine::pause()
 {
     running_ = false;
+    plannerRunId_.clear();
+    emit plannerRunChanged(QString());
+}
+
+void SimulationEngine::onLateralControlReceived(double offset)
+{
+    planStartOffset_ = offset;
 }

@@ -12,6 +12,7 @@
 #include "backend/DataManager.h"
 #include "communication/Socket.h"
 #include "system/LinuxLogger.h"
+#include "communication/PlannerLink.h"
 
 static QString aebExpectationToString(AebExpectation expectation);
 
@@ -83,6 +84,8 @@ bool HeadlessRunner::initialize()
     // 5. 创建 TCP Server
     socketServer_ =
         new SocketServer(this);
+
+    plannerLink_ = new PlannerLink(this);
 
     // 6. 建立连接
     setupConnections();
@@ -272,12 +275,6 @@ void HeadlessRunner::setupConnections()
         simulationEngine_,
         &SimulationEngine::onFrontObstacleDistanceUpdated);
 
-    connect(
-        dataManager_,
-        &DataManager::lateralControlReceived,
-        simulationEngine_,
-        &SimulationEngine::onLateralControlReceived);
-
     // ==========================================
     // DataLoader 状态
     // ==========================================
@@ -287,36 +284,6 @@ void HeadlessRunner::setupConnections()
         &DataLoader::statusUpdate,
         this,
         &HeadlessRunner::onStatusUpdate);
-
-    // ==========================================
-    // Planner协议错误
-    // ==========================================
-
-    connect(
-        dataManager_,
-        &DataManager::plannerMessageError,
-        this,
-        [](const QString &message)
-        {
-            LinuxLogger::warning(
-                message);
-
-            qWarning().noquote()
-                << "[PLANNER]"
-                << message;
-        });
-
-    connect(
-        dataManager_,
-        &DataManager::plannerDataReady,
-        socketServer_,
-        &SocketServer::sendToClient);
-
-    connect(
-        socketServer_,
-        &SocketServer::dataReceived,
-        dataManager_,
-        &DataManager::onPlannerDataReceived);
 
     connect(
         socketServer_,
@@ -359,6 +326,26 @@ void HeadlessRunner::setupConnections()
                 << "[NETWORK]"
                 << "Python Planner disconnected";
         });
+
+    connect(simulationEngine_, &SimulationEngine::plannerRunChanged,
+            plannerLink_, &PlannerLink::setRun);
+    connect(socketServer_, &SocketServer::clientConnected,
+            plannerLink_, &PlannerLink::onConnected);
+    connect(socketServer_, &SocketServer::clientDisconnected,
+            plannerLink_, &PlannerLink::onDisconnected);
+    connect(dataManager_, &DataManager::plannerDataReady,
+            plannerLink_, &PlannerLink::onPerception);
+    connect(plannerLink_, &PlannerLink::sendRequested,
+            socketServer_, &SocketServer::sendToClient);
+    connect(socketServer_, &SocketServer::dataReceived,
+            plannerLink_, &PlannerLink::onReply);
+    connect(plannerLink_, &PlannerLink::controlReady,
+            simulationEngine_, &SimulationEngine::onLateralControlReceived);
+    connect(plannerLink_, &PlannerLink::protocolError,
+            this, [](const QString &message)
+            {
+                LinuxLogger::warning(message);
+                qWarning().noquote() << "[PLANNER]" << message; });
 }
 
 bool HeadlessRunner::setupNetwork()

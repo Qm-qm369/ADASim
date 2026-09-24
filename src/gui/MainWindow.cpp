@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "communication/PlannerLink.h"
 
 #include <QThread>
 #include <QDebug>
@@ -215,12 +216,6 @@ void MainWindow::setupConnections()
 
     connect(
         dataManager_,
-        &DataManager::lateralControlReceived,
-        simulationEngine_,
-        &SimulationEngine::onLateralControlReceived);
-
-    connect(
-        dataManager_,
         &DataManager::frontObstacleDistanceUpdated,
         simulationEngine_,
         &SimulationEngine::onFrontObstacleDistanceUpdated);
@@ -319,13 +314,6 @@ void MainWindow::setupConnections()
         &DataManager::frontObstacleDistanceUpdated,
         simulationEngine_,
         &SimulationEngine::onFrontObstacleDistanceUpdated);
-
-    connect(dataManager_, &DataManager::plannerMessageError,
-            this, [this](const QString &message)
-            {
-                LinuxLogger::warning( message);
-
-                statusBar()->showMessage(QString("Planner消息异常：%1").arg(message)); });
 
     connect(this, &MainWindow::pauseEngineRequested,
             simulationEngine_, &SimulationEngine::pause);
@@ -770,6 +758,27 @@ void MainWindow::setupNetwork()
     // =====================================
 
     socketServer_ = new SocketServer(this);
+    plannerLink_ = new PlannerLink(this);
+
+    connect(simulationEngine_, &SimulationEngine::plannerRunChanged,
+            plannerLink_, &PlannerLink::setRun);
+    connect(socketServer_, &SocketServer::clientConnected,
+            plannerLink_, &PlannerLink::onConnected);
+    connect(socketServer_, &SocketServer::clientDisconnected,
+            plannerLink_, &PlannerLink::onDisconnected);
+    connect(dataManager_, &DataManager::plannerDataReady,
+            plannerLink_, &PlannerLink::onPerception);
+    connect(plannerLink_, &PlannerLink::sendRequested,
+            socketServer_, &SocketServer::sendToClient);
+    connect(socketServer_, &SocketServer::dataReceived,
+            plannerLink_, &PlannerLink::onReply);
+    connect(plannerLink_, &PlannerLink::controlReady,
+            simulationEngine_, &SimulationEngine::onLateralControlReceived);
+    connect(plannerLink_, &PlannerLink::protocolError,
+            this, [](const QString &message)
+            {
+            LinuxLogger::warning(message);
+            qWarning().noquote() << "[PLANNER]" << message; });
 
     connect(socketServer_, &SocketServer::networkError,
             this, [this](const QString &message)
@@ -777,32 +786,6 @@ void MainWindow::setupNetwork()
             statusBar()->showMessage( QString("网络异常：%1") .arg(message));
 
             LinuxLogger::error(message); });
-
-    // =====================================
-    // 2. DataManager -> Python
-    // =====================================
-
-    connect(dataManager_, &DataManager::plannerDataReady,
-            socketServer_, &SocketServer::sendToClient);
-
-    // =====================================
-    // 3. Python -> DataManager
-    // =====================================
-
-    connect(socketServer_, &SocketServer::dataReceived,
-            dataManager_, &DataManager::onPlannerDataReceived);
-
-    // =====================================
-    // 5. 显示规划结果
-    // =====================================
-
-    connect(dataManager_, &DataManager::lateralControlReceived,
-            this, [this](double offset)
-            {
-            if (algoValue_)
-            {
-                algoValue_->setText( QString( "规划偏移 %1 m").arg(offset, 0, 'f', 2));
-            } });
 
     // =====================================
     // 6. 网络状态

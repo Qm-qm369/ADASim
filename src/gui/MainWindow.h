@@ -29,6 +29,7 @@ class QCloseEvent;
 class DataManager;
 class SensorView;
 class SocketServer;
+class PlannerLink;
 
 class MainWindow : public QMainWindow
 {
@@ -172,6 +173,8 @@ private:
     int plannerPort_ = 8080;
 
     bool shutdownStarted_ = false;
+
+    PlannerLink *plannerLink_ = nullptr;
 };
 
 #endif

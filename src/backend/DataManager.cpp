@@ -229,7 +229,7 @@ void DataManager::onPointCloudReceived(
     // 我们规定：每条消息以换行结束
     plannerData.append('\n');
 
-    emit plannerDataReady(plannerData);
+    emit plannerDataReady(plannerData, plannerInputRunId_, plannerInputTimeMs_);
 
     QVector<QPointF> obstaclePositions;
 
@@ -260,94 +260,21 @@ void DataManager::onPointCloudReceived(
         mergedPoints);
 }
 
-// 接收 Python Planner 发回来的原始 JSON 数据，层层检查格式是否合法；只有确认它是一条合法的 CONTROL 控制消息，才取出 steer_offset 并通知后面的横向规划模块。
-void DataManager::onPlannerDataReceived(
-    const QByteArray &data)
-{
-    QJsonParseError error;
-
-    QJsonDocument document = QJsonDocument::fromJson(data, &error);
-
-    // =====================================
-    // 1. JSON语法检查
-    // =====================================
-
-    if (error.error != QJsonParseError::NoError)
-    {
-        emit plannerMessageError(QString("Planner JSON parse failed: %1").arg(error.errorString()));
-
-        return;
-    }
-
-    // =====================================
-    // 2. 根节点必须是object
-    // =====================================
-
-    if (!document.isObject()) // 这是检查： JSON 最外层是不是 {}对象。
-    {
-        emit plannerMessageError("Planner message is not a JSON object");
-
-        return;
-    }
-
-    QJsonObject root = document.object(); // 真正确认是 Object 后，取出来
-
-    // =====================================
-    // 3. type必须存在并且是CONTROL
-    // =====================================
-
-    QJsonValue typeValue = root.value("type");
-
-    if (!typeValue.isString())
-    {
-        emit plannerMessageError("Planner message missing valid type");
-
-        return;
-    }
-
-    if (typeValue.toString() != "CONTROL")
-    {
-        emit plannerMessageError(QString("Unsupported Planner message type: %1").arg(typeValue.toString()));
-
-        return;
-    }
-
-    // =====================================
-    // 4. steer_offset必须是数字
-    // =====================================
-
-    QJsonValue offsetValue = root.value("steer_offset");
-
-    if (!offsetValue.isDouble())
-    {
-        emit plannerMessageError("CONTROL message missing numeric steer_offset");
-
-        return;
-    }
-
-    const double offset = offsetValue.toDouble();
-    constexpr double MaxPlannerOffsetMeters = 3.5;
-
-    if (!std::isfinite(offset) ||
-        std::abs(offset) > MaxPlannerOffsetMeters)
-    {
-        emit plannerMessageError(
-            "CONTROL steer_offset must be finite and within [-3.5, 3.5] m");
-        return;
-    }
-
-    emit lateralControlReceived(offset);
-}
-
 void DataManager::onSimulationFrame(
     double x,
     double y,
     double yaw,
-    const QVector<QPointF> &points)
+    const QVector<QPointF> &points,
+    const QString &runId,
+    qint64 producedAtMs)
 {
+    // ========== 新增代码（放在最前面）==========
+    plannerInputRunId_ = runId;
+    plannerInputTimeMs_ = producedAtMs;
+    // ==========================================
+
     // 先更新这一帧真实车辆状态
     onVehiclePositionReceived(x, y, yaw);
-
     // 再使用这一帧车辆状态处理这一帧点云
     onPointCloudReceived(points);
 }

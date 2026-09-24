@@ -47,13 +47,8 @@ signals:
         double yaw);
 
     // 把规划输入数据交给网络模块
-    void plannerDataReady(const QByteArray &data);
-
-    // Python返回横向规划结果
-    void lateralControlReceived(double offset);
-
-    // V2.0：Planner消息不符合协议
-    void plannerMessageError(const QString &message);
+    void plannerDataReady(const QByteArray &data, const QString &runId,
+                          qint64 producedAtMs);
 
 public slots:
     void onPointCloudReceived(const QVector<QPointF> &points);
@@ -73,14 +68,13 @@ public slots:
         double y,
         double yaw);
 
-    // 接收Python Planner返回的数据
-    void onPlannerDataReceived(const QByteArray &data);
-
     void onSimulationFrame(
         double x,
         double y,
         double yaw,
-        const QVector<QPointF> &points);
+        const QVector<QPointF> &points,
+        const QString &runId,
+        qint64 producedAtMs);
 
 private:
     // 轨迹预测算法
@@ -105,6 +99,9 @@ private:
     double lastEgoX_ = 0.0;
     double lastEgoY_ = 0.0;
     double lastEgoYaw_ = 0.0;
+
+    QString plannerInputRunId_;
+    qint64 plannerInputTimeMs_ = 0;
 };
 
 #endif

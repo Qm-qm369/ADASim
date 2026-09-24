@@ -12,6 +12,7 @@
 class DataLoader;
 class DataManager;
 class SocketServer;
+class PlannerLink;
 
 class HeadlessRunner : public QObject
 {
@@ -105,6 +106,8 @@ private:
         AebExpectation::Any;
 
     int maxTestFrames_ = 200;
+
+    PlannerLink *plannerLink_ = nullptr;
 };
 
 #endif

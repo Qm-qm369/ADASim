@@ -66,6 +66,7 @@ set(PROJECT_SOURCES
     src/algorithm/LongitudinalController.cpp
 
     src/communication/Socket.cpp
+    src/communication/PlannerLink.cpp
 
     src/system/LinuxLogger.cpp
     src/system/LinuxSignalHandler.cpp
@@ -130,6 +131,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/src/communication
     ${CMAKE_SOURCE_DIR}/src/algorithm
     ${CMAKE_SOURCE_DIR}/src/test
+    
 )
 
 # ============================================================

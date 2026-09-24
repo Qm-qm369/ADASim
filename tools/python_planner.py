@@ -2,6 +2,7 @@
 
 import socket
 import json
+import math
 
 
 # =========================================
@@ -205,6 +206,30 @@ def choose_best_offset(obstacles, last_offset):
 
     return best_offset
 
+def validate_request(message):
+    if not isinstance(message, dict):
+        raise ValueError("root must be object")
+    if type(message.get("protocol_version")) is not int or message["protocol_version"] != 1:
+        raise ValueError("unsupported protocol_version")
+    if message.get("type") != "OBSTACLES":
+        raise ValueError("unsupported type")
+    session = message.get("session_id")
+    frame = message.get("frame_id")
+    if not isinstance(session, str) or not (1 <= len(session) <= 64):
+        raise ValueError("invalid session_id")
+    if type(frame) is not int or not (1 <= frame <= 2147483647):
+        raise ValueError("invalid frame_id")
+    obstacles = message.get("data")
+    if not isinstance(obstacles, list):
+        raise ValueError("data must be array")
+    for item in obstacles:
+        if not isinstance(item, dict):
+            raise ValueError("obstacle must be object")
+        for key in ("local_x", "local_y", "dist"):
+            value = item.get(key)
+            if type(value) not in (int, float) or not math.isfinite(value):
+                raise ValueError("invalid obstacle field: " + key)
+    return session, frame, obstacles
 
 def main():
     # =====================================
@@ -239,6 +264,7 @@ def main():
     # 用于计算平滑代价。
     #
     last_offset = 0.0
+    last_session = None
 
 
     # =====================================
@@ -291,11 +317,15 @@ def main():
             # 只处理OBSTACLES消息
             # =================================
 
-            if message.get("type") != "OBSTACLES":
-                continue
+            try:
+                session, frame, obstacles = validate_request(message)
+            except (ValueError, OverflowError) as exc:
+                print("[PROTOCOL]", exc, flush=True)
+            continue
 
-
-            obstacles = message.get("data", [])
+            if session != last_session:
+                last_offset = 0.0
+                last_session = session
 
 
             print("\n=====================================")
@@ -324,10 +354,13 @@ def main():
             response = {
                 "type": "CONTROL",
                 "steer_offset": best_offset
+                "protocol_version": 1,
+                "session_id": session,
+                "frame_id": frame,
             }
 
 
-            response_data = json.dumps(response) + "\n"
+            response_data = json.dumps(response, allow_nan=False)(response) + "\n"
 
             client.sendall(response_data.encode("utf-8"))
 

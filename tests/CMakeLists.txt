@@ -81,4 +81,15 @@ target_link_libraries(test_socket_server PRIVATE
     Qt${QT_VERSION_MAJOR}::Test
 )
 add_test(NAME test_socket_server COMMAND test_socket_server)
-set_tests_properties(test_socket_server PROPERTIES TIMEOUT 30)
+set_tests_properties(test_socket_server PROPERTIES TIMEOUT 30)  
+
+add_executable(test_planner_link
+    test_planner_link.cpp
+    ${CMAKE_SOURCE_DIR}/src/communication/PlannerLink.cpp
+    ${CMAKE_SOURCE_DIR}/src/communication/PlannerLink.h
+)
+target_include_directories(test_planner_link PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(test_planner_link PRIVATE
+    Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Test)
+add_test(NAME test_planner_link COMMAND test_planner_link)
+set_tests_properties(test_planner_link PROPERTIES TIMEOUT 30)

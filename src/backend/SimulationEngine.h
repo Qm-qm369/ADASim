@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QVector>
 #include <QPointF>
+#include <QString>
 
 #include "algorithm/VehicleModel.h"
 #include "algorithm/TrajectoryController.h"
@@ -42,7 +43,9 @@ signals:
         double x,
         double y,
         double yaw,
-        const QVector<QPointF> &points);
+        const QVector<QPointF> &points,
+        const QString &runId,
+        qint64 producedAtMs);
 
     // 一帧核心计算完成，通知 GUI 更新显示
     void frameUpdated(
@@ -65,6 +68,8 @@ signals:
         int index,
         int maxIndex,
         const SimulationFrame &frame);
+
+    void plannerRunChanged(const QString &runId);
 
 public slots:
 
@@ -183,6 +188,8 @@ private:
 
     ControllerMode controllerMode_ =
         ControllerMode::DualError;
+
+    QString plannerRunId_;
 };
 
 #endif
